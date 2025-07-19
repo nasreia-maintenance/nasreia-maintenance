@@ -11,7 +11,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">\
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
@@ -73,6 +73,13 @@
             color: #6b7280;
             font-size: 0.875rem;
         }
+        /* Ensure custom-modal is always on top */
+        #custom-modal {
+            z-index: 60; /* Higher than change-password-modal */
+        }
+        #change-password-modal {
+            z-index: 50; /* Standard modal z-index */
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gray-100 font-cairo text-right">
@@ -85,6 +92,35 @@
             <div id="modal-buttons" class="flex justify-center space-x-4 rtl:space-x-reverse">
                 <!-- Buttons will be inserted here by JS -->
             </div>
+        </div>
+    </div>
+
+    <!-- Modal for Change Password -->
+    <div id="change-password-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+            <h3 class="text-xl font-bold mb-4">تغيير كلمة المرور</h3>
+            <form id="change-password-form" class="space-y-4 text-right">
+                <div>
+                    <label for="current-password" class="block text-gray-700 text-sm font-bold mb-2">كلمة المرور الحالية:</label>
+                    <input type="password" id="current-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="new-user-password" class="block text-gray-700 text-sm font-bold mb-2">كلمة المرور الجديدة:</label>
+                    <input type="password" id="new-user-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="confirm-new-user-password" class="block text-gray-700 text-sm font-bold mb-2">تأكيد كلمة المرور الجديدة:</label>
+                    <input type="password" id="confirm-new-user-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div class="flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        حفظ التغييرات
+                    </button>
+                    <button type="button" onclick="document.getElementById('change-password-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        إلغاء
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -149,6 +185,10 @@
                  <div class="mt-8">
                     <button onclick="exportAllData()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4">
                         تصدير جميع البيانات (نسخ احتياطي)
+                    </button>
+                    <!-- New button for changing password -->
+                    <button id="change-password-button" onclick="showChangePasswordModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4 hidden">
+                        تغيير كلمة المرور
                     </button>
                 </div>
                 <button onclick="logout()" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1">
@@ -498,6 +538,13 @@
             if (sectionId === 'dashboard-section') {
                 document.getElementById('logged-in-user-info').textContent = `مرحباً، ${window.loggedInUser} (${window.loggedInRole === 'admin' ? 'مسؤول' : (window.loggedInRole === 'normal_admin' ? 'مسؤول عادي' : 'مستخدم')})`;
                 document.getElementById('account-management-card').style.display = window.loggedInRole === 'admin' ? 'flex' : 'none';
+                // Show/hide change password button based on role
+                const changePasswordButton = document.getElementById('change-password-button');
+                if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
+                    changePasswordButton.classList.remove('hidden');
+                } else {
+                    changePasswordButton.classList.add('hidden');
+                }
             }
         }
 
@@ -530,21 +577,26 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
+            // Removed .single() to prevent PGRST116 error if multiple or no rows are returned
             const { data, error } = await window.supabase
                 .from('app_users')
                 .select('*')
                 .eq('username', username)
-                .eq('password', password) // In a real app, you should hash passwords
-                .single();
+                .eq('password', password); 
 
-            if (error || !data) {
+            if (error) {
                 console.error("Error during login:", error);
+                showModal('خطأ في تسجيل الدخول', `فشل تسجيل الدخول: ${error.message}`, [{ text: 'موافق' }]);
+            } else if (!data || data.length === 0) {
+                // No user found with the given credentials
                 showModal('خطأ في تسجيل الدخول', 'اسم المستخدم أو كلمة المرور غير صحيحة.', [{ text: 'موافق' }]);
             } else {
-                window.loggedInUser = data.username;
-                window.loggedInRole = data.role;
+                // Assuming the first match is the correct one if duplicates exist (should ideally be prevented by unique constraint in DB)
+                const user = data[0];
+                window.loggedInUser = user.username;
+                window.loggedInRole = user.role;
                 // Store user info in session storage for persistence across reloads
-                sessionStorage.setItem('loggedInUser', JSON.stringify({ username: data.username, role: data.role }));
+                sessionStorage.setItem('loggedInUser', JSON.stringify({ username: user.username, role: user.role }));
                 await fetchAllData(); // Fetch all data after successful login
                 showSection('dashboard-section');
             }
@@ -746,8 +798,8 @@
                     <button onclick="renderMachineTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="سجل الصيانة">
-                    <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs">سجل الآلة</button>
-                </td>`;
+                        <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs">سجل الآلة</button>
+                    </td>`;
         }
 
         async function saveMachine(id) {
@@ -1260,6 +1312,68 @@
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
             ]);
         }
+
+        // --- New Function for Change Password Modal ---
+        function showChangePasswordModal() {
+            document.getElementById('change-password-modal').classList.remove('hidden');
+            // Clear form fields when opening
+            document.getElementById('change-password-form').reset();
+        }
+
+        // --- Event Listener for Change Password Form Submission ---
+        document.getElementById('change-password-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const currentPasswordInput = document.getElementById('current-password').value;
+            const newPasswordInput = document.getElementById('new-user-password').value;
+            const confirmNewPasswordInput = document.getElementById('confirm-new-user-password').value;
+
+            // Basic validation
+            if (!currentPasswordInput || !newPasswordInput || !confirmNewPasswordInput) {
+                showModal('خطأ', 'الرجاء ملء جميع حقول كلمة المرور.', [{ text: 'موافق' }]);
+                return;
+            }
+
+            if (newPasswordInput !== confirmNewPasswordInput) {
+                showModal('خطأ', 'كلمة المرور الجديدة وتأكيدها غير متطابقين.', [{ text: 'موافق' }]);
+                return;
+            }
+
+            // Find the logged-in user to verify current password
+            const currentUser = window.users.find(u => u.username === window.loggedInUser);
+
+            if (!currentUser) {
+                showModal('خطأ', 'حدث خطأ غير متوقع. المستخدم غير موجود.', [{ text: 'موافق' }]);
+                return;
+            }
+
+            // Verify current password (NOTE: In a real app, passwords should be hashed and compared securely)
+            if (currentUser.password !== currentPasswordInput) {
+                showModal('خطأ', 'كلمة المرور الحالية غير صحيحة.', [{ text: 'موافق' }]);
+                return;
+            }
+
+            // Update password in Supabase
+            const { error } = await window.supabase
+                .from('app_users')
+                .update({ password: newPasswordInput })
+                .eq('id', currentUser.id);
+
+            if (error) {
+                console.error("Error updating password:", error);
+                showModal('خطأ', `فشل تحديث كلمة المرور: ${error.message}`, [{ text: 'موافق', onClick: () => {
+                    // Close the change password modal only after user acknowledges the error
+                    document.getElementById('change-password-modal').classList.add('hidden');
+                }}]);
+            } else {
+                showModal('نجاح', 'تم تحديث كلمة المرور بنجاح!', [{ text: 'موافق', onClick: async () => {
+                    // Close the change password modal and re-fetch users after user acknowledges success
+                    document.getElementById('change-password-modal').classList.add('hidden');
+                    await fetchUsers(); // Re-fetch users to update the local window.users array with the new password
+                }}]);
+            }
+        });
+
 
         // --- Initial Setup on Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {

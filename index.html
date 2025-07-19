@@ -569,10 +569,9 @@
                 console.error('Error fetching machines:', error);
                 showModal('خطأ في جلب البيانات', `فشل جلب بيانات الآلات: ${error.message}`, [{ text: 'موافق' }]);
             } else {
-                window.machines = data;
-                if(document.getElementById('machine-log-section').style.display !== 'none') {
-                   renderMachineTable();
-                }
+                // Sort machines by workLocation alphabetically
+                window.machines = data.sort((a, b) => a.workLocation.localeCompare(b.workLocation));
+                renderMachineTable();
                 populateMaintenanceDropdowns();
             }
         }
@@ -583,10 +582,9 @@
                 console.error('Error fetching maintenance records:', error);
                 showModal('خطأ في جلب البيانات', `فشل جلب سجلات الصيانة: ${error.message}`, [{ text: 'موافق' }]);
             } else {
-                window.maintenanceRecords = data;
-                 if(document.getElementById('maintenance-log-section').style.display !== 'none') {
-                   renderMaintenanceTable();
-                }
+                // Sort maintenance records by date in descending order (most recent first)
+                window.maintenanceRecords = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderMaintenanceTable();
             }
         }
 
@@ -597,9 +595,7 @@
                 showModal('خطأ في جلب البيانات', `فشل جلب بيانات المستخدمين: ${error.message}`, [{ text: 'موافق' }]);
             } else {
                 window.users = data;
-                if(document.getElementById('account-management-section').style.display !== 'none') {
-                   renderUsersTable();
-                }
+                renderUsersTable();
             }
         }
         
@@ -611,21 +607,21 @@
             window.supabase.channel('public:machines')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'machines' }, payload => {
                     console.log('Machine change detected:', payload);
-                    fetchMachines();
+                    fetchMachines(); // Re-fetch machines to update the table
                 })
                 .subscribe();
             
             window.supabase.channel('public:maintenanceRecords')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenanceRecords' }, payload => {
                     console.log('Maintenance record change detected:', payload);
-                    fetchMaintenanceRecords();
+                    fetchMaintenanceRecords(); // Re-fetch maintenance records to update the table
                 })
                 .subscribe();
 
             window.supabase.channel('public:app_users')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, payload => {
                     console.log('User change detected:', payload);
-                    fetchUsers();
+                    fetchUsers(); // Re-fetch users to update the table
                 })
                 .subscribe();
         }
@@ -728,6 +724,7 @@
             } else {
                 document.getElementById('add-machine-form').reset();
                 showMessage('machine-message', 'تمت إضافة الآلة بنجاح!', 'success');
+                await fetchMachines(); // Re-fetch and re-render the table
             }
         });
 
@@ -779,6 +776,7 @@
                 showMessage('machine-message', `فشل تحديث الآلة: ${error.message}`, 'error');
             } else {
                 showMessage('machine-message', 'تم تحديث الآلة بنجاح!', 'success');
+                await fetchMachines(); // Re-fetch and re-render the table
             }
         }
 
@@ -812,6 +810,8 @@
                         showMessage('machine-message', `فشل حذف الآلة: ${deleteMachineError.message}`, 'error');
                     } else {
                         showMessage('machine-message', 'تم حذف الآلة وسجلاتها بنجاح!', 'success');
+                        await fetchMachines(); // Re-fetch and re-render the table
+                        await fetchMaintenanceRecords(); // Also update maintenance records as they might have been deleted
                     }
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
@@ -976,6 +976,7 @@
                 document.getElementById('add-maintenance-record-form').reset();
                 populateMaintenanceDropdowns();
                 showMessage('maintenance-message', 'تمت إضافة سجل الصيانة بنجاح!', 'success');
+                await fetchMaintenanceRecords(); // Re-fetch and re-render the table
             }
         });
 
@@ -1036,6 +1037,7 @@
                 showMessage('maintenance-message', `فشل تحديث سجل الصيانة: ${error.message}`, 'error');
             } else {
                 showMessage('maintenance-message', 'تم تحديث سجل الصيانة بنجاح!', 'success');
+                await fetchMaintenanceRecords(); // Re-fetch and re-render the table
             }
         }
 
@@ -1052,6 +1054,7 @@
                         showMessage('maintenance-message', `فشل حذف السجل الصيانة: ${error.message}`, 'error');
                     } else {
                         showMessage('maintenance-message', 'تم حذف سجل الصيانة بنجاح!', 'success');
+                        await fetchMaintenanceRecords(); // Re-fetch and re-render the table
                     }
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
@@ -1181,6 +1184,7 @@
             } else {
                 document.getElementById('add-user-form').reset();
                 showMessage('account-message', 'تمت إضافة المستخدم بنجاح!', 'success');
+                await fetchUsers(); // Re-fetch and re-render the table
             }
         });
 
@@ -1228,6 +1232,7 @@
                 showMessage('account-message', `فشل تحديث المستخدم: ${error.message}`, 'error');
             } else {
                 showMessage('account-message', 'تم تحديث المستخدم بنجاح!', 'success');
+                await fetchUsers(); // Re-fetch and re-render the table
             }
         }
 
@@ -1249,6 +1254,7 @@
                         showMessage('account-message', `فشل حذف المستخدم: ${error.message}`, 'error');
                     } else {
                         showMessage('account-message', 'تم حذف المستخدم بنجاح!', 'success');
+                        await fetchUsers(); // Re-fetch and re-render the table
                     }
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }

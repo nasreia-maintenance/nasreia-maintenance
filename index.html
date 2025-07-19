@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة الصيانة - محطة الناصرية</title>
+    <title>نظام إدارة الصيانة - محطة الناصرية (Supabase)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SheetJS (for Excel export) - CDN link -->
@@ -12,164 +12,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, query, where, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js"; // Import getAnalytics
-
-        // Global Firebase variables
-        window.firebaseApp = null;
-        window.db = null;
-        window.auth = null;
-        window.userId = null; // Will store the Firebase Auth UID
-        window.analytics = null; // Global for analytics instance
-
-        // Initialize Firebase and set up listeners
-        window.initializeFirebase = async () => {
-            try {
-                // User-provided Firebase configuration
-                const firebaseConfig = {
-                    apiKey: "AIzaSyChn7PR_u3Eqi23wREFrDGpsLky9d8LpnY",
-                    authDomain: "nasria-maintenance.firebaseapp.com",
-                    projectId: "nasria-maintenance",
-                    storageBucket: "nasria-maintenance.firebasestorage.app",
-                    messagingSenderId: "659878221941",
-                    appId: "1:659878221941:web:9d62b1ed93676f886dc03c",
-                    measurementId: "G-DJWE45ZC7H"
-                };
-
-                // Set window.appId from the provided firebaseConfig
-                window.appId = firebaseConfig.appId; 
-                console.log("Application ID (appId) being used:", window.appId); // Added for debugging appId
-
-                window.firebaseApp = initializeApp(firebaseConfig);
-                window.db = getFirestore(window.firebaseApp);
-                window.auth = getAuth(window.firebaseApp);
-                window.analytics = getAnalytics(window.firebaseApp); // Initialize Analytics
-
-                // Sign in anonymously to ensure Firestore access if no user is logged in yet.
-                // This is crucial for Firestore listeners to work, even if a specific user isn't logged in yet.
-                try {
-                    await signInAnonymously(window.auth);
-                } catch (authError) {
-                    if (authError.code === 'auth/admin-restricted-operation') {
-                        console.error("Firebase Auth Error: Anonymous authentication is not enabled.", authError);
-                        window.showModal('خطأ في المصادقة', 'فشل المصادقة المجهولة. يرجى تمكين "المصادقة المجهولة" في إعدادات Firebase Authentication لمشروعك.', [{ text: 'موافق' }]);
-                        return; // Stop initialization if anonymous auth fails
-                    } else {
-                        throw authError; // Re-throw other authentication errors
-                    }
-                }
-
-                onAuthStateChanged(window.auth, (user) => {
-                    if (user) {
-                        window.userId = user.uid;
-                        console.log("Firebase User ID:", window.userId); // Added for debugging
-                        // Setup Firestore listeners after authentication
-                        window.setupFirestoreListeners();
-                    } else {
-                        window.userId = null;
-                        console.log("No Firebase user is signed in.");
-                        // Clear data if user logs out or session ends
-                        window.machines = [];
-                        window.maintenanceRecords = [];
-                        window.users = [];
-                        window.loggedInUser = null;
-                        window.loggedInRole = null;
-                        // Show login section if no user
-                        window.showSection('login-section');
-                    }
-                });
-
-            } catch (error) {
-                console.error("Error initializing Firebase:", error);
-                window.showModal('خطأ في تهيئة Firebase', `فشل تهيئة Firebase: ${error.message}`, [{ text: 'موافق' }]);
-            }
-        };
-
-        // Function to set up real-time listeners for data
-        window.setupFirestoreListeners = () => {
-            if (!window.db || !window.userId) {
-                console.warn("Firestore or User ID not available for setting up listeners.");
-                return;
-            }
-
-            // Using the explicit appId from firebaseConfig for collection paths
-            const appIdFromConfig = window.appId; // Use the window.appId which is set from firebaseConfig
-            console.log("Firestore Collection Path Base:", `artifacts/${appIdFromConfig}/public/data/`);
-            console.log("Current Firebase User ID:", window.userId);
-
-
-            // Listen for 'users' collection (public for app users)
-            onSnapshot(collection(window.db, `artifacts/${appIdFromConfig}/public/data/app_users`), (snapshot) => {
-                const fetchedUsers = [];
-                snapshot.forEach(doc => {
-                    fetchedUsers.push({ id: doc.id, ...doc.data() });
-                });
-                window.users = fetchedUsers;
-                console.log("Users fetched:", window.users);
-                if (window.loggedInUser && window.loggedInRole) { // Only re-render if already logged in
-                    window.renderUsersTable();
-                }
-            }, (error) => {
-                console.error("Error fetching users:", error);
-                window.showModal('خطأ في جلب المستخدمين', `فشل جلب بيانات المستخدمين: ${error.message}`, [{ text: 'موافق' }]);
-            });
-
-            // Listen for 'machines' collection
-            onSnapshot(collection(window.db, `artifacts/${appIdFromConfig}/public/data/machines`), (snapshot) => {
-                const fetchedMachines = [];
-                snapshot.forEach(doc => {
-                    fetchedMachines.push({ id: doc.id, ...doc.data() });
-                });
-                window.machines = fetchedMachines;
-                console.log("Machines fetched:", window.machines);
-                if (window.loggedInUser && window.loggedInRole) { // Only re-render if already logged in
-                    window.renderMachineTable();
-                    window.populateMaintenanceDropdowns(); // Re-populate dropdowns as machines might change
-                }
-            }, (error) => {
-                console.error("Error fetching machines:", error);
-                window.showModal('خطأ في جلب الآلات', `فشل جلب بيانات الآلات: ${error.message}`, [{ text: 'موافق' }]);
-            });
-
-            // Listen for 'maintenanceRecords' collection
-            onSnapshot(collection(window.db, `artifacts/${appIdFromConfig}/public/data/maintenanceRecords`), (snapshot) => {
-                const fetchedRecords = [];
-                snapshot.forEach(doc => {
-                    fetchedRecords.push({ id: doc.id, ...doc.data() });
-                });
-                window.maintenanceRecords = fetchedRecords;
-                console.log("Maintenance Records fetched:", window.maintenanceRecords);
-                if (window.loggedInUser && window.loggedInRole) { // Only re-render if already logged in
-                    window.renderMaintenanceTable();
-                }
-            }, (error) => {
-                console.error("Error fetching maintenance records:", error);
-                window.showModal('خطأ في جلب سجلات الصيانة', `فشل جلب بيانات سجلات الصيانة: ${error.message}`, [{ text: 'موافق' }]);
-            });
-        };
-
-        // Make Firestore functions globally accessible for the main script
-        window.getFirestore = getFirestore;
-        window.doc = doc;
-        window.getDoc = getDoc;
-        window.setDoc = setDoc;
-        window.deleteDoc = deleteDoc;
-        window.onSnapshot = onSnapshot;
-        window.collection = collection;
-        window.query = query;
-        window.where = where;
-        window.addDoc = addDoc;
-        window.getDocs = getDocs;
-        window.getAuth = getAuth;
-        window.signInAnonymously = signInAnonymously;
-        window.signInWithCustomToken = signInWithCustomToken;
-        window.onAuthStateChanged = onAuthStateChanged;
-        window.getAnalytics = getAnalytics; // Make getAnalytics global
-    </script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
         body {
             font-family: 'Cairo', sans-serif;
@@ -569,18 +414,20 @@
     </div>
 
     <script>
-        // Global data storage (now updated by Firestore listeners)
+        // --- Supabase Initialization ---
+        const supabaseUrl = 'https://oinueaolypaewfwobyrv.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pbnVlYW9seXBhZXdmd29ieXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTQwMTAsImV4cCI6MjA2ODQzMDAxMH0.pSUrXHq5F3WiuBovmU-FW0aPs22BLrPDWXoKIKMEpyE';
+        window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Global data storage
         window.machines = [];
         window.maintenanceRecords = [];
         window.users = []; // Stores user objects: { id, username, password, role }
         window.loggedInUser = null;
         window.loggedInRole = null;
-        // The appId will be explicitly defined from the firebaseConfig below
-        // window.appId is set in window.initializeFirebase from the firebaseConfig
 
         // --- Utility Functions ---
 
-        // Function to show a custom modal (replaces alert/confirm)
         function showModal(title, message, buttons) {
             const modal = document.getElementById('custom-modal');
             document.getElementById('modal-title').textContent = title;
@@ -600,9 +447,7 @@
             });
             modal.classList.remove('hidden');
         }
-        window.showModal = showModal; // Make global for Firebase module
 
-        // Function to show a specific section and hide others
         function showSection(sectionId) {
             // Hide all main sections
             document.getElementById('login-section').classList.add('hidden');
@@ -614,7 +459,6 @@
             const sectionToShow = document.getElementById(sectionId);
             if(sectionToShow) {
                 sectionToShow.classList.remove('hidden');
-                // Add flex for sections that should be centered with flexbox
                 if(['login-section', 'dashboard-section'].includes(sectionId)){
                     sectionToShow.classList.add('flex');
                 }
@@ -622,75 +466,27 @@
 
             if (sectionId === 'machine-log-section') {
                 renderMachineTable();
-                // Hide/show add form and action buttons based on role
                 const addMachineForm = document.getElementById('add-machine-form');
-                const machineActionButtons = document.querySelectorAll('#machine-log-section .flex.justify-end.mb-4 button');
-                
-                // Only 'admin' and 'normal_admin' can add/edit/delete machines
                 if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
                     addMachineForm.classList.remove('hidden');
-                    // Show all action buttons for admin and normal_admin
-                    machineActionButtons.forEach(btn => btn.classList.remove('hidden'));
                 } else {
                     addMachineForm.classList.add('hidden');
-                    // For 'user' role, only show export button
-                    machineActionButtons.forEach(btn => {
-                        if (btn.onclick.toString().includes('exportMachinesToExcel')) { 
-                            btn.classList.remove('hidden');
-                        } else {
-                            btn.classList.add('hidden');
-                        }
-                    });
                 }
             }
             if (sectionId === 'maintenance-log-section') {
-                renderMaintenanceTable(); // Render all records by default
-
+                renderMaintenanceTable();
                 const addMaintenanceForm = document.getElementById('add-maintenance-record-form');
-                const maintenanceWorkLocationSelect = document.getElementById('maintenance-workLocation');
-                const maintenanceWorkPartSelect = document.getElementById('maintenance-workPart');
-                const maintenanceMachineNameSelect = document.getElementById('maintenance-machineName');
-                const maintenanceMachineCodeInput = document.getElementById('maintenance-machineCode');
-                const maintenanceDataEntryUserInput = document.getElementById('maintenance-dataEntryUser'); // Get the new input
-
-                // Reset and disable dependent dropdowns
-                maintenanceWorkLocationSelect.innerHTML = '<option value="">اختر موقع العمل</option>';
-                maintenanceWorkPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>'; 
-                maintenanceMachineNameSelect.innerHTML = '<option value="">اختر الآلة</option>'; 
-                maintenanceMachineCodeInput.value = '';
-                maintenanceDataEntryUserInput.value = window.loggedInUser || ''; // Set current user for Data Entry
-
-                maintenanceWorkLocationSelect.disabled = true;
-                maintenanceWorkPartSelect.disabled = true;
-                maintenanceMachineNameSelect.disabled = true;
-                maintenanceMachineCodeInput.disabled = true; // Ensure code input is also disabled
-                // maintenanceDataEntryUserInput should always be readonly, but enable/disable form group
-                // No need to disable maintenanceDataEntryUserInput as it's readonly
-
                 if (window.machines.length === 0) {
                     showMessage('maintenance-message', 'يرجى إضافة آلات في قسم "سجل الآلات" أولاً قبل إضافة سجلات صيانة.', 'error');
-                    addMaintenanceForm.classList.add('hidden'); // Hide the form
+                    addMaintenanceForm.classList.add('hidden');
                 } else {
-                    // Only populate dropdowns and enable form if machines exist AND user is admin or normal_admin
                     if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
                         addMaintenanceForm.classList.remove('hidden');
-                        populateMaintenanceDropdowns(); // Populate dropdowns only if machines exist
-                        maintenanceWorkLocationSelect.disabled = false; // Enable location dropdown for admin/normal_admin
+                        populateMaintenanceDropdowns();
                     } else {
-                        addMaintenanceForm.classList.add('hidden'); // Hide for non-admin
-                        showMessage('maintenance-message', 'ليس لديك صلاحية لإضافة سجلات صيانة.', 'error');
+                        addMaintenanceForm.classList.add('hidden');
                     }
                 }
-
-                // Hide/show action buttons based on role (export buttons usually visible for all)
-                const maintenanceActionButtons = document.querySelectorAll('#maintenance-log-section .mb-6.p-4 button');
-                maintenanceActionButtons.forEach(btn => {
-                    if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin' || btn.onclick.toString().includes('exportMaintenanceToExcel')) {
-                        btn.classList.remove('hidden');
-                    } else {
-                        btn.classList.add('hidden');
-                    }
-                });
             }
             if (sectionId === 'account-management-section') {
                 if (window.loggedInRole !== 'admin') {
@@ -701,13 +497,10 @@
             }
             if (sectionId === 'dashboard-section') {
                 document.getElementById('logged-in-user-info').textContent = `مرحباً، ${window.loggedInUser} (${window.loggedInRole === 'admin' ? 'مسؤول' : (window.loggedInRole === 'normal_admin' ? 'مسؤول عادي' : 'مستخدم')})`;
-                // Account management card only visible for 'admin'
                 document.getElementById('account-management-card').style.display = window.loggedInRole === 'admin' ? 'flex' : 'none';
             }
         }
-        window.showSection = showSection; // Make global for Firebase module
 
-        // Function to display a message within a section
         function showMessage(elementId, text, type = 'info') {
             const messageDiv = document.getElementById(elementId);
             const messageText = document.getElementById(elementId + '-text');
@@ -737,114 +530,150 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
-            try {
-                // Ensure window.appId is set before using it in collection path
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
-                }
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/app_users`);
-                const q = window.query(usersCollectionRef, window.where("username", "==", username), window.where("password", "==", password)); // In a real app, hash and compare passwords securely
-                const querySnapshot = await window.getDocs(q);
+            const { data, error } = await window.supabase
+                .from('app_users')
+                .select('*')
+                .eq('username', username)
+                .eq('password', password) // In a real app, you should hash passwords
+                .single();
 
-                if (!querySnapshot.empty) {
-                    const userDoc = querySnapshot.docs[0];
-                    const userData = userDoc.data();
-                    window.loggedInUser = userData.username;
-                    window.loggedInRole = userData.role;
-                    showSection('dashboard-section');
-                } else {
-                    showModal('خطأ في تسجيل الدخول', 'اسم المستخدم أو كلمة المرور غير صحيحة.', [{ text: 'موافق' }]);
-                }
-            } catch (error) {
+            if (error || !data) {
                 console.error("Error during login:", error);
-                showModal('خطأ في تسجيل الدخول', `حدث خطأ أثناء تسجيل الدخول: ${error.message}`, [{ text: 'موافق' }]);
+                showModal('خطأ في تسجيل الدخول', 'اسم المستخدم أو كلمة المرور غير صحيحة.', [{ text: 'موافق' }]);
+            } else {
+                window.loggedInUser = data.username;
+                window.loggedInRole = data.role;
+                // Store user info in session storage for persistence across reloads
+                sessionStorage.setItem('loggedInUser', JSON.stringify({ username: data.username, role: data.role }));
+                await fetchAllData(); // Fetch all data after successful login
+                showSection('dashboard-section');
             }
         });
 
         function logout() {
             showModal('تسجيل الخروج', 'هل أنت متأكد أنك تريد تسجيل الخروج؟', [
-                { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    try {
-                        await window.auth.signOut(); // Sign out from Firebase Auth
-                        window.loggedInUser = null;
-                        window.loggedInRole = null;
-                        window.location.reload(); // Reload the page to reset everything
-                    } catch (error) {
-                        console.error("Error during logout:", error);
-                        showModal('خطأ في تسجيل الخروج', `حدث خطأ أثناء تسجيل الخروج: ${error.message}`, [{ text: 'موافق' }]);
-                    }
+                { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: () => {
+                    window.loggedInUser = null;
+                    window.loggedInRole = null;
+                    sessionStorage.removeItem('loggedInUser');
+                    window.location.reload();
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
             ]);
         }
         
-        // --- Export All Data (from Firestore) ---
-        async function exportAllData() {
-            try {
-                // Ensure window.appId is set before using it in collection path
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
+        // --- Data Fetching and Real-time Setup ---
+        async function fetchMachines() {
+            const { data, error } = await window.supabase.from('machines').select('*');
+            if (error) {
+                console.error('Error fetching machines:', error);
+                showModal('خطأ في جلب البيانات', `فشل جلب بيانات الآلات: ${error.message}`, [{ text: 'موافق' }]);
+            } else {
+                window.machines = data;
+                if(document.getElementById('machine-log-section').style.display !== 'none') {
+                   renderMachineTable();
                 }
-                const machinesSnapshot = await window.getDocs(window.collection(window.db, `artifacts/${window.appId}/public/data/machines`));
-                const fetchedMachines = machinesSnapshot.docs.map(doc => doc.data());
+                populateMaintenanceDropdowns();
+            }
+        }
 
-                const maintenanceSnapshot = await window.getDocs(window.collection(window.db, `artifacts/${window.appId}/public/data/maintenanceRecords`));
-                const fetchedMaintenanceRecords = maintenanceSnapshot.docs.map(doc => doc.data());
-
-                const usersSnapshot = await window.getDocs(window.collection(window.db, `artifacts/${window.appId}/public/data/app_users`));
-                const fetchedUsers = usersSnapshot.docs.map(doc => doc.data());
-
-                const allData = { users: fetchedUsers, machines: fetchedMachines, maintenanceRecords: fetchedMaintenanceRecords };
-                const dataStr = JSON.stringify(allData, null, 2);
-                const dataBlob = new Blob([dataStr], {type: "application/json"});
-
-                // Use the File System Access API for saving
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: 'backup_firestore.json',
-                    types: [{
-                        description: 'JSON Files',
-                        accept: { 'application/json': ['.json'] },
-                    }],
-                });
-                const writableStream = await handle.createWritable();
-                await writableStream.write(dataBlob);
-                await writableStream.close();
-                showModal('نجاح', 'تم تصدير جميع البيانات من Firestore بنجاح!', [{text: 'حسنًا'}]);
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    showModal('إلغاء', 'تم إلغاء عملية التصدير.', [{text: 'موافق'}]);
-                } else {
-                    showModal('خطأ في التصدير', `فشل تصدير الملف من Firestore: ${error.message}`, [{text: 'موافق'}]);
+        async function fetchMaintenanceRecords() {
+             const { data, error } = await window.supabase.from('maintenanceRecords').select('*');
+            if (error) {
+                console.error('Error fetching maintenance records:', error);
+                showModal('خطأ في جلب البيانات', `فشل جلب سجلات الصيانة: ${error.message}`, [{ text: 'موافق' }]);
+            } else {
+                window.maintenanceRecords = data;
+                 if(document.getElementById('maintenance-log-section').style.display !== 'none') {
+                   renderMaintenanceTable();
                 }
             }
         }
+
+        async function fetchUsers() {
+            const { data, error } = await window.supabase.from('app_users').select('*');
+            if (error) {
+                console.error('Error fetching users:', error);
+                showModal('خطأ في جلب البيانات', `فشل جلب بيانات المستخدمين: ${error.message}`, [{ text: 'موافق' }]);
+            } else {
+                window.users = data;
+                if(document.getElementById('account-management-section').style.display !== 'none') {
+                   renderUsersTable();
+                }
+            }
+        }
+        
+        async function fetchAllData() {
+            await Promise.all([fetchMachines(), fetchMaintenanceRecords(), fetchUsers()]);
+        }
+
+        function setupSupabaseListeners() {
+            window.supabase.channel('public:machines')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'machines' }, payload => {
+                    console.log('Machine change detected:', payload);
+                    fetchMachines();
+                })
+                .subscribe();
+            
+            window.supabase.channel('public:maintenanceRecords')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenanceRecords' }, payload => {
+                    console.log('Maintenance record change detected:', payload);
+                    fetchMaintenanceRecords();
+                })
+                .subscribe();
+
+            window.supabase.channel('public:app_users')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, payload => {
+                    console.log('User change detected:', payload);
+                    fetchUsers();
+                })
+                .subscribe();
+        }
+
+        // --- Export All Data ---
+        async function exportAllData() {
+            try {
+                const { data: machines, error: machinesError } = await window.supabase.from('machines').select('*');
+                if (machinesError) throw machinesError;
+
+                const { data: maintenanceRecords, error: maintenanceError } = await window.supabase.from('maintenanceRecords').select('*');
+                if (maintenanceError) throw maintenanceError;
+
+                const { data: users, error: usersError } = await window.supabase.from('app_users').select('*');
+                if (usersError) throw usersError;
+
+                const allData = { users, machines, maintenanceRecords };
+                const dataStr = JSON.stringify(allData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: "application/json"});
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = "supabase_backup.json";
+                link.click();
+                URL.revokeObjectURL(link.href);
+                showModal('نجاح', 'تم تصدير جميع البيانات من Supabase بنجاح!', [{text: 'حسنًا'}]);
+            } catch (error) {
+                showModal('خطأ في التصدير', `فشل تصدير الملف من Supabase: ${error.message}`, [{text: 'موافق'}]);
+            }
+        }
+
 
         // --- Machine Log Functions ---
         function renderMachineTable(filteredMachines = window.machines) {
             const tableBody = document.getElementById('machine-table-body');
             tableBody.innerHTML = '';
-            // Adjust header visibility based on role
             const actionsHeader = document.querySelector('.machine-actions-header');
-            const maintenanceLogHeader = document.querySelector('#machine-log-section thead tr th:last-child'); // Select the last th
             
-            // Show/hide action buttons and headers based on admin or normal_admin role
             if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
                 actionsHeader.classList.remove('hidden');
             } else {
                 actionsHeader.classList.add('hidden');
             }
-            // Always show "Maintenance Log" column for all users
-            maintenanceLogHeader.classList.remove('hidden');
-
 
             if (filteredMachines.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="${(window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') ? 6 : 5}" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد آلات لعرضها.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد آلات لعرضها.</td></tr>`;
                 return;
             }
+
             filteredMachines.forEach(machine => {
                 const row = tableBody.insertRow();
                 row.setAttribute('data-id', machine.id);
@@ -853,10 +682,10 @@
                     actionsHtml = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
                             <button onclick="editMachine('${machine.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">تعديل</button>
-                            <button onclick="deleteMachine('${machine.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
+                            <button onclick="deleteMachine('${machine.id}', '${machine.machineCode}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
                         </td>`;
                 } else {
-                    actionsHtml = `<td class="hidden"></td>`; // Hide actions column for 'user'
+                    actionsHtml = `<td class="hidden"></td>`;
                 }
 
                 row.innerHTML = `
@@ -870,7 +699,6 @@
                     </td>`;
             });
         }
-        window.renderMachineTable = renderMachineTable; // Make global
 
         document.getElementById('add-machine-form').addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -888,33 +716,28 @@
                 showMessage('machine-message', 'الرجاء ملء جميع الحقول.', 'error');
                 return;
             }
-            // Uniqueness check for machineCode on add
             if (window.machines.some(m => m.machineCode === newMachine.machineCode)) {
                 showMessage('machine-message', 'كود الآلة هذا موجود بالفعل. يرجى استخدام كود فريد.', 'error');
                 return;
             }
-            try {
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
-                }
-                await window.addDoc(window.collection(window.db, `artifacts/${window.appId}/public/data/machines`), newMachine);
+
+            const { error } = await window.supabase.from('machines').insert([newMachine]);
+            if (error) {
+                console.error("Error adding machine:", error);
+                showMessage('machine-message', `فشل إضافة الآلة: ${error.message}`, 'error');
+            } else {
                 document.getElementById('add-machine-form').reset();
                 showMessage('machine-message', 'تمت إضافة الآلة بنجاح!', 'success');
-            } catch (e) {
-                console.error("Error adding machine:", e);
-                showMessage('machine-message', `فشل إضافة الآلة: ${e.message}`, 'error');
             }
         });
 
-        async function editMachine(id) {
+        function editMachine(id) {
             if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
                 showMessage('machine-message', 'ليس لديك صلاحية لتعديل الآلات.', 'error');
                 return;
             }
             const row = document.querySelector(`#machine-table-body tr[data-id='${id}']`);
-            const machine = window.machines.find(m => m.id === id);
+            const machine = window.machines.find(m => m.id == id);
             if (!row || !machine) return;
             row.innerHTML = `
                 <td class="px-6 py-4" data-label="موقع العمل"><input type="text" value="${machine.workLocation}" class="w-full p-1 border rounded" id="edit-workLocation-${id}"></td>
@@ -923,12 +746,13 @@
                 <td class="px-6 py-4" data-label="كود الآلة"><input type="text" value="${machine.machineCode}" class="w-full p-1 border rounded" id="edit-machineCode-${id}"></td>
                 <td class="px-6 py-4" data-label="الإجراءات">
                     <button onclick="saveMachine('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                    <button onclick="cancelEditMachine()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
+                    <button onclick="renderMachineTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="سجل الصيانة">
-                        <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs">سجل الآلة</button>
-                    </td>`;
+                    <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs">سجل الآلة</button>
+                </td>`;
         }
+
         async function saveMachine(id) {
             if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
                 showMessage('machine-message', 'ليس لديك صلاحية لحفظ تعديلات الآلات.', 'error');
@@ -944,74 +768,67 @@
                 showMessage('machine-message', 'الرجاء ملء جميع الحقول.', 'error');
                 return;
             }
-
-            const currentMachineData = window.machines.find(m => m.id === id);
-
-            // Check if machineCode has actually changed
-            if (updatedMachine.machineCode !== currentMachineData.machineCode) {
-                // If it changed, check if the new machineCode exists for ANY other machine
-                if (window.machines.some(m => m.id !== id && m.machineCode === updatedMachine.machineCode)) {
-                    showMessage('machine-message', 'كود الآلة موجود بالفعل لآلة أخرى.', 'error');
-                    return;
-                }
+            if (window.machines.some(m => m.id != id && m.machineCode === updatedMachine.machineCode)) {
+                showMessage('machine-message', 'كود الآلة موجود بالفعل لآلة أخرى.', 'error');
+                return;
             }
 
-            try {
-                // Ensure window.appId is set before using it in collection path
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
-                }
-                const machineRef = window.doc(window.db, `artifacts/${window.appId}/public/data/machines`, id);
-                await window.setDoc(machineRef, updatedMachine, { merge: true }); // Use merge to avoid overwriting other fields if any
+            const { error } = await window.supabase.from('machines').update(updatedMachine).eq('id', id);
+             if (error) {
+                console.error("Error updating machine:", error);
+                showMessage('machine-message', `فشل تحديث الآلة: ${error.message}`, 'error');
+            } else {
                 showMessage('machine-message', 'تم تحديث الآلة بنجاح!', 'success');
-            } catch (e) {
-                console.error("Error updating machine:", e);
-                showMessage('machine-message', `فشل تحديث الآلة: ${e.message}`, 'error');
             }
         }
-        function cancelEditMachine() { renderMachineTable(); }
-        function deleteMachine(id) {
+
+        function deleteMachine(id, machineCode) {
             if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
                 showMessage('machine-message', 'ليس لديك صلاحية لحذف الآلات.', 'error');
                 return;
             }
             showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف هذه الآلة؟ سيؤدي هذا إلى حذف سجلات الصيانة المرتبطة بها أيضًا.', [
                 { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    try {
-                        // Ensure window.appId is set before using it in collection path
-                        if (!window.appId) {
-                            console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                            showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                            return;
-                        }
-                        const machineToDelete = window.machines.find(m => m.id === id);
-                        if (machineToDelete) {
-                            // Delete associated maintenance records
-                            const q = window.query(window.collection(window.db, `artifacts/${window.appId}/public/data/maintenanceRecords`), window.where("machineCode", "==", machineToDelete.machineCode));
-                            const snapshot = await window.getDocs(q);
-                            const deletePromises = snapshot.docs.map(d => window.deleteDoc(window.doc(window.db, `artifacts/${appId}/public/data/maintenanceRecords`, d.id)));
-                            await Promise.all(deletePromises);
-                        }
-                        // Delete the machine document
-                        await window.deleteDoc(window.doc(window.db, `artifacts/${window.appId}/public/data/machines`, id));
+                    // First, delete associated maintenance records
+                    const { error: deleteRecordsError } = await window.supabase
+                        .from('maintenanceRecords')
+                        .delete()
+                        .eq('machineCode', machineCode);
+
+                    if (deleteRecordsError) {
+                        console.error("Error deleting maintenance records:", deleteRecordsError);
+                        showMessage('machine-message', `فشل حذف سجلات الصيانة: ${deleteRecordsError.message}`, 'error');
+                        return;
+                    }
+                    
+                    // Then, delete the machine
+                    const { error: deleteMachineError } = await window.supabase
+                        .from('machines')
+                        .delete()
+                        .eq('id', id);
+
+                    if (deleteMachineError) {
+                        console.error("Error deleting machine:", deleteMachineError);
+                        showMessage('machine-message', `فشل حذف الآلة: ${deleteMachineError.message}`, 'error');
+                    } else {
                         showMessage('machine-message', 'تم حذف الآلة وسجلاتها بنجاح!', 'success');
-                    } catch (e) {
-                        console.error("Error deleting machine:", e);
-                        showMessage('machine-message', `فشل حذف الآلة: ${e.message}`, 'error');
                     }
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
             ]);
         }
+
         document.getElementById('search-machine').addEventListener('input', function(event) {
             const searchTerm = event.target.value.toLowerCase();
-            const filteredMachines = window.machines.filter(machine => Object.values(machine).some(val => val.toString().toLowerCase().includes(searchTerm)));
+            const filteredMachines = window.machines.filter(machine => 
+                machine.workLocation.toLowerCase().includes(searchTerm) ||
+                machine.workPart.toLowerCase().includes(searchTerm) ||
+                machine.machineName.toLowerCase().includes(searchTerm) ||
+                machine.machineCode.toLowerCase().includes(searchTerm)
+            );
             renderMachineTable(filteredMachines);
         });
 
-        // Function to view maintenance records for a specific machine
         function viewMachineMaintenance(machineCode) {
             const filteredRecords = window.maintenanceRecords.filter(record => record.machineCode === machineCode);
             showSection('maintenance-log-section');
@@ -1019,13 +836,11 @@
             showMessage('maintenance-message', `عرض سجلات الصيانة للآلة ذات الكود: ${machineCode}`, 'info');
         }
 
-
         // --- Maintenance Log Functions ---
         function renderMaintenanceTable(filteredRecords = window.maintenanceRecords) {
             const tableBody = document.getElementById('maintenance-table-body');
             tableBody.innerHTML = '';
-            // Adjust header visibility based on role
-            const actionsHeader = document.querySelector('.maintenance-actions-header');
+            const actionsHeader = document.querySelector('#maintenance-log-section .maintenance-actions-header');
             if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
                 actionsHeader.classList.remove('hidden');
             } else {
@@ -1033,8 +848,7 @@
             }
 
             if (filteredRecords.length === 0) {
-                // Adjusted colspan for the new columns
-                tableBody.innerHTML = `<tr><td colspan="${(window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') ? 11 : 10}" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد سجلات صيانة لعرضها.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد سجلات صيانة لعرضها.</td></tr>`;
                 return;
             }
             filteredRecords.forEach(record => {
@@ -1049,35 +863,32 @@
                             <button onclick="deleteMaintenanceRecord('${record.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
                         </td>`;
                 } else {
-                    actionsHtml = `<td class="hidden"></td>`; // Hide actions column for 'user'
+                    actionsHtml = `<td class="hidden"></td>`;
                 }
                 row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${record.workLocation}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${record.workPart}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الآلة">${record.machineName}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${record.machineCode}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="قسم الصيانة">${record.maintenanceDepartment || ''}</td> <!-- Display new field -->
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="قسم الصيانة">${record.maintenanceDepartment || ''}</td>
                     <td class="px-6 py-4 text-sm text-gray-900" data-label="العمل المنفذ"><div class="max-w-xs truncate" title="${record.performedWork}">${record.performedWork}</div></td>
                     <td class="px-6 py-4 text-sm text-gray-900" data-label="قطع الغيار"><div class="max-w-xs truncate" title="${record.sparePartsUsed}">${record.sparePartsUsed}</div></td>
                     <td class="px-6 py-4 text-sm text-gray-900" data-label="ملاحظات"><div class="max-w-xs truncate" title="${record.notes}">${record.notes}</div></td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td> <!-- Display new field -->
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td>
                     ${actionsHtml}`;
             });
         }
-        window.renderMaintenanceTable = renderMaintenanceTable; // Make global
 
         function populateMaintenanceDropdowns() {
             const workLocationSelect = document.getElementById('maintenance-workLocation');
             const workPartSelect = document.getElementById('maintenance-workPart');
             const machineNameSelect = document.getElementById('maintenance-machineName');
             const machineCodeInput = document.getElementById('maintenance-machineCode');
-            const dataEntryUserInput = document.getElementById('maintenance-dataEntryUser'); // Get data entry user input
+            const dataEntryUserInput = document.getElementById('maintenance-dataEntryUser');
 
-            // Set current user for Data Entry field
             dataEntryUserInput.value = window.loggedInUser || '';
 
-            // Reset and disable dependent dropdowns
             workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
             machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
             machineCodeInput.value = '';
@@ -1086,26 +897,19 @@
             machineNameSelect.disabled = true;
             machineCodeInput.disabled = true;
 
-            // Populate workLocation dropdown only once on initial load or if it's empty
-            // This logic needs to be careful because onSnapshot will re-trigger this.
-            // Ensure it only adds new options, or clears and re-adds. Clearing and re-adding is safer.
             workLocationSelect.innerHTML = '<option value="">اختر موقع العمل</option>';
             [...new Set(window.machines.map(m => m.workLocation))].forEach(location => {
                 workLocationSelect.innerHTML += `<option value="${location}">${location}</option>`;
             });
-            workLocationSelect.disabled = false; // Enable location dropdown after populating
+            workLocationSelect.disabled = false;
             
-            // Event listeners for cascading dropdowns
             workLocationSelect.onchange = () => {
                 const selectedLocation = workLocationSelect.value;
                 workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
                 machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
                 machineCodeInput.value = '';
-
                 workPartSelect.disabled = !selectedLocation;
                 machineNameSelect.disabled = true;
-                machineCodeInput.disabled = true;
-
                 if (selectedLocation) {
                     [...new Set(window.machines.filter(m => m.workLocation === selectedLocation).map(m => m.workPart))].forEach(part => {
                         workPartSelect.innerHTML += `<option value="${part}">${part}</option>`;
@@ -1118,12 +922,8 @@
                 const selectedPart = workPartSelect.value;
                 machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
                 machineCodeInput.value = '';
-
                 machineNameSelect.disabled = !selectedPart;
-                machineCodeInput.disabled = true;
-
                 if (selectedLocation && selectedPart) {
-                    // Filter machines based on both location and part
                     const filteredMachinesByPart = window.machines.filter(m => m.workLocation === selectedLocation && m.workPart === selectedPart);
                     [...new Set(filteredMachinesByPart.map(m => m.machineName))].forEach(name => {
                         machineNameSelect.innerHTML += `<option value="${name}">${name}</option>`;
@@ -1136,18 +936,14 @@
                 const selectedPart = workPartSelect.value;
                 const selectedMachineName = machineNameSelect.value;
                 machineCodeInput.value = '';
-                machineCodeInput.disabled = true; // Disable until a machine is truly selected
-
                 if (selectedLocation && selectedPart && selectedMachineName) {
                     const selectedMachine = window.machines.find(m => m.workLocation === selectedLocation && m.workPart === selectedPart && m.machineName === selectedMachineName);
                     if (selectedMachine) {
                         machineCodeInput.value = selectedMachine.machineCode;
-                        machineCodeInput.disabled = false; // Enable once a code is set
                     }
                 }
             };
         }
-        window.populateMaintenanceDropdowns = populateMaintenanceDropdowns; // Make global
 
         document.getElementById('add-maintenance-record-form').addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -1161,42 +957,37 @@
                 workPart: document.getElementById('maintenance-workPart').value,
                 machineName: document.getElementById('maintenance-machineName').value,
                 machineCode: document.getElementById('maintenance-machineCode').value,
-                maintenanceDepartment: document.getElementById('maintenance-department').value, // New field
+                maintenanceDepartment: document.getElementById('maintenance-department').value,
                 performedWork: document.getElementById('maintenance-performedWork').value.trim(),
                 sparePartsUsed: document.getElementById('maintenance-sparePartsUsed').value.trim(),
                 notes: document.getElementById('maintenance-notes').value.trim(),
-                dataEntryUser: window.loggedInUser // New field, automatically populated
+                dataEntryUser: window.loggedInUser
             };
             if (!newRecord.date || !newRecord.workLocation || !newRecord.workPart || !newRecord.machineName || !newRecord.performedWork || !newRecord.maintenanceDepartment) {
                 showMessage('maintenance-message', 'الرجاء ملء جميع الحقول الإلزامية.', 'error');
                 return;
             }
-            try {
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
-                }
-                await window.addDoc(window.collection(window.db, `artifacts/${window.appId}/public/data/maintenanceRecords`), newRecord);
+
+            const { error } = await window.supabase.from('maintenanceRecords').insert([newRecord]);
+            if (error) {
+                console.error("Error adding maintenance record:", error);
+                showMessage('maintenance-message', `فشل إضافة سجل الصيانة: ${error.message}`, 'error');
+            } else {
                 document.getElementById('add-maintenance-record-form').reset();
-                populateMaintenanceDropdowns(); // Re-populate dropdowns after adding a record
+                populateMaintenanceDropdowns();
                 showMessage('maintenance-message', 'تمت إضافة سجل الصيانة بنجاح!', 'success');
-            } catch (e) {
-                console.error("Error adding maintenance record:", e);
-                showMessage('maintenance-message', `فشل إضافة سجل الصيانة: ${e.message}`, 'error');
             }
         });
 
-        async function editMaintenanceRecord(id) {
+        function editMaintenanceRecord(id) {
             if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
                 showMessage('maintenance-message', 'ليس لديك صلاحية لتعديل سجلات الصيانة.', 'error');
                 return;
             }
             const row = document.querySelector(`#maintenance-table-body tr[data-id='${id}']`);
-            const record = window.maintenanceRecords.find(r => r.id === id);
+            const record = window.maintenanceRecords.find(r => r.id == id);
             if (!row || !record) return;
 
-            // Options for maintenance department dropdown
             const departmentOptions = ['ميكانيك', 'كهرباء', 'تحكم'].map(dep => 
                 `<option value="${dep}" ${record.maintenanceDepartment === dep ? 'selected' : ''}>${dep}</option>`
             ).join('');
@@ -1207,20 +998,17 @@
                 <td class="px-6 py-4" data-label="جزء العمل"><input type="text" value="${record.workPart}" class="w-full p-1 border rounded" id="edit-maintenance-workPart-${id}"></td>
                 <td class="px-6 py-4" data-label="الآلة"><input type="text" value="${record.machineName}" class="w-full p-1 border rounded" id="edit-maintenance-machineName-${id}"></td>
                 <td class="px-6 py-4" data-label="كود الآلة"><input type="text" value="${record.machineCode}" class="w-full p-1 border rounded" id="edit-maintenance-machineCode-${id}"></td>
-                <td class="px-6 py-4" data-label="قسم الصيانة">
-                    <select class="w-full p-1 border rounded" id="edit-maintenance-department-${id}">
-                        ${departmentOptions}
-                    </select>
-                </td>
+                <td class="px-6 py-4" data-label="قسم الصيانة"><select class="w-full p-1 border rounded" id="edit-maintenance-department-${id}">${departmentOptions}</select></td>
                 <td class="px-6 py-4" data-label="العمل المنفذ"><textarea class="w-full p-1 border rounded" id="edit-maintenance-performedWork-${id}">${record.performedWork}</textarea></td>
                 <td class="px-6 py-4" data-label="قطع الغيار"><textarea class="w-full p-1 border rounded" id="edit-maintenance-sparePartsUsed-${id}">${record.sparePartsUsed}</textarea></td>
                 <td class="px-6 py-4" data-label="ملاحظات"><textarea class="w-full p-1 border rounded" id="edit-maintenance-notes-${id}">${record.notes}</textarea></td>
                 <td class="px-6 py-4" data-label="مدخل البيانات"><input type="text" value="${record.dataEntryUser || ''}" class="w-full p-1 border rounded bg-gray-100" id="edit-maintenance-dataEntryUser-${id}" readonly></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
                     <button onclick="saveMaintenanceRecord('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                    <button onclick="cancelEditMaintenanceRecord()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
+                    <button onclick="renderMaintenanceTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
                 </td>`;
         }
+        
         async function saveMaintenanceRecord(id) {
             if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
                 showMessage('maintenance-message', 'ليس لديك صلاحية لحفظ تعديلات سجلات الصيانة.', 'error');
@@ -1232,32 +1020,25 @@
                 workPart: document.getElementById(`edit-maintenance-workPart-${id}`).value.trim(),
                 machineName: document.getElementById(`edit-maintenance-machineName-${id}`).value.trim(),
                 machineCode: document.getElementById(`edit-maintenance-machineCode-${id}`).value.trim(),
-                maintenanceDepartment: document.getElementById(`edit-maintenance-department-${id}`).value, // New field
+                maintenanceDepartment: document.getElementById(`edit-maintenance-department-${id}`).value,
                 performedWork: document.getElementById(`edit-maintenance-performedWork-${id}`).value.trim(),
                 sparePartsUsed: document.getElementById(`edit-maintenance-sparePartsUsed-${id}`).value.trim(),
                 notes: document.getElementById(`edit-maintenance-notes-${id}`).value.trim(),
-                dataEntryUser: document.getElementById(`edit-maintenance-dataEntryUser-${id}`).value // New field, read-only
+                dataEntryUser: document.getElementById(`edit-maintenance-dataEntryUser-${id}`).value
             };
             if (!updatedRecord.date || !updatedRecord.workLocation || !updatedRecord.workPart || !updatedRecord.machineName || !updatedRecord.performedWork || !updatedRecord.maintenanceDepartment) {
                 showMessage('maintenance-message', 'الرجاء ملء الحقول الإلزامية.', 'error');
                 return;
             }
-            try {
-                // Ensure window.appId is set before using it in collection path
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
-                }
-                const recordRef = window.doc(window.db, `artifacts/${window.appId}/public/data/maintenanceRecords`, id);
-                await window.setDoc(recordRef, updatedRecord, { merge: true });
+            const { error } = await window.supabase.from('maintenanceRecords').update(updatedRecord).eq('id', id);
+            if (error) {
+                console.error("Error updating maintenance record:", error);
+                showMessage('maintenance-message', `فشل تحديث سجل الصيانة: ${error.message}`, 'error');
+            } else {
                 showMessage('maintenance-message', 'تم تحديث سجل الصيانة بنجاح!', 'success');
-            } catch (e) {
-                console.error("Error updating maintenance record:", e);
-                showMessage('maintenance-message', `فشل تحديث سجل الصيانة: ${e.message}`, 'error');
             }
         }
-        function cancelEditMaintenanceRecord() { renderMaintenanceTable(); }
+
         function deleteMaintenanceRecord(id) {
             if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
                 showMessage('maintenance-message', 'ليس لديك صلاحية لحذف سجلات الصيانة.', 'error');
@@ -1265,26 +1046,23 @@
             }
             showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف سجل الصيانة هذا؟', [
                 { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    try {
-                        // Ensure window.appId is set before using it in collection path
-                        if (!window.appId) {
-                            console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                            showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                            return;
-                        }
-                        await window.deleteDoc(window.doc(window.db, `artifacts/${window.appId}/public/data/maintenanceRecords`, id));
+                    const { error } = await window.supabase.from('maintenanceRecords').delete().eq('id', id);
+                    if (error) {
+                        console.error("Error deleting maintenance record:", error);
+                        showMessage('maintenance-message', `فشل حذف السجل الصيانة: ${error.message}`, 'error');
+                    } else {
                         showMessage('maintenance-message', 'تم حذف سجل الصيانة بنجاح!', 'success');
-                    } catch (e) {
-                        console.error("Error deleting maintenance record:", e);
-                        showMessage('maintenance-message', `فشل حذف السجل الصيانة: ${e.message}`, 'error');
                     }
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
             ]);
         }
+
         document.getElementById('search-maintenance').addEventListener('input', function(event) {
             const searchTerm = event.target.value.toLowerCase();
-            const filteredRecords = window.maintenanceRecords.filter(record => Object.values(record).some(val => val.toString().toLowerCase().includes(searchTerm)));
+            const filteredRecords = window.maintenanceRecords.filter(record => 
+                Object.values(record).some(val => val && val.toString().toLowerCase().includes(searchTerm))
+            );
             renderMaintenanceTable(filteredRecords);
         });
         
@@ -1299,7 +1077,7 @@
                 'موقع العمل': m.workLocation,
                 'جزء العمل': m.workPart,
                 'اسم الآلة': m.machineName,
-                'كود الآلة': m.machineCode,
+                'كود الآلة': m.machineCode
             }));
             const ws = XLSX.utils.json_to_sheet(dataToExport);
             const wb = XLSX.utils.book_new();
@@ -1307,14 +1085,12 @@
             XLSX.writeFile(wb, "سجل_الآلات.xlsx");
         }
 
-        // Modified to include search term filtering
         function getFilteredMaintenanceRecordsForExport() {
-            let recordsToFilter = [...window.maintenanceRecords]; // Start with all records
-
+            let recordsToFilter = [...window.maintenanceRecords];
             const searchTerm = document.getElementById('search-maintenance').value.toLowerCase();
             if (searchTerm) {
                 recordsToFilter = recordsToFilter.filter(record => 
-                    Object.values(record).some(val => val.toString().toLowerCase().includes(searchTerm))
+                    Object.values(record).some(val => val && val.toString().toLowerCase().includes(searchTerm))
                 );
             }
 
@@ -1337,27 +1113,27 @@
         }
 
         function exportMaintenanceToExcel() {
-            const recordsToExport = getFilteredMaintenanceRecordsForExport(); // Use the new function
+            const recordsToExport = getFilteredMaintenanceRecordsForExport();
             if (recordsToExport.length === 0) {
                 showModal('لا توجد بيانات', 'لا توجد سجلات صيانة لتصديرها في الفترة المحددة أو بناءً على البحث الحالي.', [{ text: 'موافق' }]);
                 return;
             }
-            const dataToExport = recordsToExport.map(r => ({
+             const dataToExport = recordsToExport.map(r => ({
                 'التاريخ': r.date, 
                 'موقع العمل': r.workLocation, 
                 'جزء العمل': r.workPart, 
                 'الآلة': r.machineName, 
                 'كود الآلة': r.machineCode, 
-                'قسم الصيانة': r.maintenanceDepartment, // New field
+                'قسم الصيانة': r.maintenanceDepartment,
                 'العمل المنفذ': r.performedWork, 
                 'قطع الغيار المستخدمة': r.sparePartsUsed, 
                 'ملاحظات': r.notes,
-                'مدخل البيانات': r.dataEntryUser // New field
+                'مدخل البيانات': r.dataEntryUser
             }));
             const ws = XLSX.utils.json_to_sheet(dataToExport);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "سجل الصيانة");
-            XLSX.writeFile(wb, "سجل_الآلات.xlsx");
+            XLSX.writeFile(wb, "سجل_الصيانة.xlsx");
         }
 
         // --- Account Management Functions ---
@@ -1371,44 +1147,16 @@
             window.users.forEach(user => {
                 const row = tableBody.insertRow();
                 row.setAttribute('data-id', user.id);
-                let roleDisplay = '';
-                if (user.role === 'admin') {
-                    roleDisplay = 'مسؤول';
-                } else if (user.role === 'normal_admin') {
-                    roleDisplay = 'مسؤول عادي';
-                } else {
-                    roleDisplay = 'مستخدم';
-                }
-
-                let actionsHtml = '';
-                // Only 'admin' can see and interact with edit/delete buttons for other users
-                // A 'user' can only see their own row and edit their own password
-                if (window.loggedInRole === 'admin') {
-                    actionsHtml = `
+                let roleDisplay = user.role === 'admin' ? 'مسؤول' : (user.role === 'normal_admin' ? 'مسؤول عادي' : 'مستخدم');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم المستخدم">${user.username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الدور">${roleDisplay}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
                         <button onclick="editUser('${user.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">تعديل</button>
                         <button onclick="deleteUser('${user.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
-                    `;
-                } else if (window.loggedInRole === 'user' && user.username === window.loggedInUser) {
-                    // User can only edit their own password
-                    actionsHtml = `
-                        <button onclick="editUser('${user.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">تغيير كلمة المرور</button>
-                    `;
-                } else {
-                    actionsHtml = ''; // No actions for normal_admin in user management or for users on other user rows
-                }
-
-                // Only render rows for 'admin' or for the logged-in 'user'
-                if (window.loggedInRole === 'admin' || (window.loggedInRole === 'user' && user.username === window.loggedInUser)) {
-                    row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم المستخدم">${user.username}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الدور">${roleDisplay}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
-                            ${actionsHtml}
-                        </td>`;
-                }
+                    </td>`;
             });
         }
-        window.renderUsersTable = renderUsersTable; // Make global
 
         document.getElementById('add-user-form').addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -1425,156 +1173,101 @@
             if (window.users.some(u => u.username === newUsername)) {
                 showMessage('account-message', 'اسم المستخدم موجود بالفعل.', 'error'); return;
             }
-            try {
-                // Ensure window.appId is set before using it in collection path
-                if (!window.appId) {
-                    console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                    showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                    return;
-                }
-                // Add user to Firestore
-                await window.addDoc(window.collection(window.db, `artifacts/${window.appId}/public/data/app_users`), {
-                    username: newUsername,
-                    password: newPassword, // In a real app, hash this password!
-                    role: newRole
-                });
+            
+            const { error } = await window.supabase.from('app_users').insert([{ username: newUsername, password: newPassword, role: newRole }]);
+            if (error) {
+                console.error("Error adding user:", error);
+                showMessage('account-message', `فشل إضافة المستخدم: ${error.message}`, 'error');
+            } else {
                 document.getElementById('add-user-form').reset();
                 showMessage('account-message', 'تمت إضافة المستخدم بنجاح!', 'success');
-            } catch (e) {
-                console.error("Error adding user:", e);
-                showMessage('account-message', `فشل إضافة المستخدم: ${e.message}`, 'error');
             }
         });
 
-        async function editUser(id) {
+        function editUser(id) {
             const row = document.querySelector(`#users-table-body tr[data-id='${id}']`);
-            const user = window.users.find(u => u.id === id);
+            const user = window.users.find(u => u.id == id);
             if (!row || !user) return;
 
-            // Admin can edit all fields for any user
-            // Normal user can only edit their own password
-            if (window.loggedInRole === 'admin') {
-                row.innerHTML = `
-                    <td data-label="اسم المستخدم"><input type="text" value="${user.username}" class="w-full p-1 border rounded" id="edit-username-${id}"></td>
-                    <td data-label="الدور">
-                        <select class="w-full p-1 border rounded" id="edit-role-${id}">
-                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>مستخدم</option>
-                            <option value="normal_admin" ${user.role === 'normal_admin' ? 'selected' : ''}>مسؤول عادي</option>
-                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>مسؤول</option>
-                        </select>
-                    </td>
-                    <td data-label="كلمة المرور">
-                        <input type="password" placeholder="اترك فارغاً لعدم التغيير" class="w-full p-1 border rounded" id="edit-password-${id}"></td>
-                    <td data-label="الإجراءات">
-                        <button onclick="saveUser('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                        <button onclick="cancelEditUser()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
-                    </td>`;
-            } else if (window.loggedInRole === 'user' && user.username === window.loggedInUser) {
-                // User editing their own password
-                row.innerHTML = `
-                    <td data-label="اسم المستخدم">${user.username}</td>
-                    <td data-label="الدور">${user.role === 'user' ? 'مستخدم' : ''}</td>
-                    <td data-label="كلمة المرور">
-                        <input type="password" placeholder="أدخل كلمة المرور الجديدة" class="w-full p-1 border rounded" id="edit-password-${id}" required></td>
-                    <td data-label="الإجراءات">
-                        <button onclick="saveUser('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                        <button onclick="cancelEditUser()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
-                    </td>`;
-            } else {
-                // Should not happen if showSection logic is correct, but as a fallback
-                showMessage('account-message', 'ليس لديك صلاحية لتعديل هذا المستخدم.', 'error');
-            }
+            row.innerHTML = `
+                <td data-label="اسم المستخدم"><input type="text" value="${user.username}" class="w-full p-1 border rounded" id="edit-username-${id}"></td>
+                <td data-label="الدور">
+                    <select class="w-full p-1 border rounded" id="edit-role-${id}">
+                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>مستخدم</option>
+                        <option value="normal_admin" ${user.role === 'normal_admin' ? 'selected' : ''}>مسؤول عادي</option>
+                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>مسؤول</option>
+                    </select>
+                </td>
+                <td data-label="الإجراءات">
+                    <input type="password" placeholder="اترك فارغاً لعدم التغيير" class="w-full p-1 border rounded mb-2" id="edit-password-${id}">
+                    <button onclick="saveUser('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
+                    <button onclick="renderUsersTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
+                </td>`;
         }
-        async function saveUser(id) {
-            // Ensure window.appId is set before using it in collection path
-            if (!window.appId) {
-                console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                return;
-            }
-            const userRef = window.doc(window.db, `artifacts/${window.appId}/public/data/app_users`, id);
-            const currentUserData = window.users.find(u => u.id === id);
 
-            let updatedUsername = currentUserData.username;
-            let updatedRole = currentUserData.role;
+        async function saveUser(id) {
+            const updatedUsername = document.getElementById(`edit-username-${id}`).value.trim();
+            const updatedRole = document.getElementById(`edit-role-${id}`).value;
             const updatedPassword = document.getElementById(`edit-password-${id}`).value.trim();
 
-            if (window.loggedInRole === 'admin') {
-                updatedUsername = document.getElementById(`edit-username-${id}`).value.trim();
-                updatedRole = document.getElementById(`edit-role-${id}`).value;
-
-                if (!updatedUsername) {
-                    showMessage('account-message', 'الرجاء ملء اسم المستخدم.', 'error'); return;
-                }
-
-                // Check if username has actually changed
-                if (updatedUsername !== currentUserData.username) {
-                    // If it changed, check if the new username exists for ANY other user
-                    const usernameExistsForOther = window.users.some(u => u.username === updatedUsername && u.id !== id);
-                    if (usernameExistsForOther) {
-                        showMessage('account-message', 'اسم المستخدم موجود بالفعل لمستخدم آخر.', 'error'); return;
-                    }
-                }
-            } else if (window.loggedInRole === 'user' && currentUserData.username === window.loggedInUser) {
-                // User can only update their own password
-                if (!updatedPassword) {
-                    showMessage('account-message', 'الرجاء إدخال كلمة المرور الجديدة.', 'error'); return;
-                }
-            } else {
-                showMessage('account-message', 'ليس لديك صلاحية لحفظ تعديلات هذا المستخدم.', 'error');
-                return;
+            if (!updatedUsername) {
+                showMessage('account-message', 'الرجاء ملء اسم المستخدم.', 'error'); return;
+            }
+            if (window.users.some(u => u.username === updatedUsername && u.id != id)) {
+                showMessage('account-message', 'اسم المستخدم موجود بالفعل لمستخدم آخر.', 'error'); return;
             }
 
-            try {
-                const updateData = {
-                    username: updatedUsername,
-                    role: updatedRole
-                };
-                if (updatedPassword) { // Only update password if a new one is provided
-                    updateData.password = updatedPassword; // In a real app, hash this password!
-                }
-                
-                await window.setDoc(userRef, updateData, { merge: true });
+            const updateData = { username: updatedUsername, role: updatedRole };
+            if (updatedPassword) {
+                updateData.password = updatedPassword; // Again, hash in a real app
+            }
+            
+            const { error } = await window.supabase.from('app_users').update(updateData).eq('id', id);
+            if (error) {
+                console.error("Error updating user:", error);
+                showMessage('account-message', `فشل تحديث المستخدم: ${error.message}`, 'error');
+            } else {
                 showMessage('account-message', 'تم تحديث المستخدم بنجاح!', 'success');
-            } catch (e) {
-                console.error("Error updating user:", e);
-                showMessage('account-message', `فشل تحديث المستخدم: ${e.message}`, 'error');
             }
         }
-        function cancelEditUser() { renderUsersTable(); }
+
         function deleteUser(id) {
             if (window.loggedInRole !== 'admin') {
                 showMessage('account-message', 'ليس لديك صلاحية لحذف المستخدمين.', 'error');
                 return;
             }
+            const userToDelete = window.users.find(u => u.id == id);
+            if (userToDelete && userToDelete.username === window.loggedInUser) {
+                showModal('خطأ', 'لا يمكنك حذف حسابك الحالي.', [{ text: 'موافق' }]); return;
+            }
+            
             showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف هذا المستخدم؟', [
                 { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    const userToDelete = window.users.find(u => u.id === id);
-                    if (userToDelete && userToDelete.username === window.loggedInUser) {
-                        showModal('خطأ', 'لا يمكنك حذف حسابك الحالي.', [{ text: 'موافق' }]); return;
-                    }
-                    try {
-                        // Ensure window.appId is set before using it in collection path
-                        if (!window.appId) {
-                            console.error("window.appId is not set. Cannot proceed with Firestore operations.");
-                            showModal('خطأ في التطبيق', 'معرف التطبيق غير متاح. يرجى إعادة تحميل الصفحة.', [{ text: 'موافق' }]);
-                            return;
-                        }
-                        await window.deleteDoc(window.doc(window.db, `artifacts/${window.appId}/public/data/app_users`, id));
+                    const { error } = await window.supabase.from('app_users').delete().eq('id', id);
+                    if (error) {
+                        console.error("Error deleting user:", error);
+                        showMessage('account-message', `فشل حذف المستخدم: ${error.message}`, 'error');
+                    } else {
                         showMessage('account-message', 'تم حذف المستخدم بنجاح!', 'success');
-                    } catch (e) {
-                        console.error("Error deleting user:", e);
-                        showMessage('account-message', `فشل حذف المستخدم: ${e.message}`, 'error');
                     }
                 }},
                 { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
             ]);
         }
 
-        // Initial setup on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            window.initializeFirebase(); // Initialize Firebase on DOMContentLoaded
-            showSection('login-section'); // Show login section directly
+        // --- Initial Setup on Page Load ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const savedUser = sessionStorage.getItem('loggedInUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                window.loggedInUser = user.username;
+                window.loggedInRole = user.role;
+                await fetchAllData();
+                setupSupabaseListeners();
+                showSection('dashboard-section');
+            } else {
+                showSection('login-section');
+            }
         });
     </script>
 </body>

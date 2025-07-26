@@ -1,0 +1,128 @@
+/* Custom CSS (Merged from style.css) */
+body {
+    font-family: 'Cairo', sans-serif;
+    background-color: #f3f4f6; /* Light gray background */
+}
+
+/* Loading Spinner */
+.loader {
+    border-top-color: #3498db;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Custom styles for tabs */
+.tab-button {
+    @apply text-gray-700 hover:bg-gray-100 transition duration-200;
+}
+
+.tab-button.active-tab {
+    @apply text-blue-700 bg-blue-100 hover:bg-blue-200;
+}
+
+/* Table row hover effect */
+tbody tr:hover {
+    @apply bg-gray-50;
+}
+
+/* Table cell padding and alignment */
+th, td {
+    @apply py-3 px-6;
+}
+
+/* Right alignment for Arabic text in tables */
+th, td {
+    text-align: right;
+}
+
+/* Center alignment for actions column */
+th:last-child, td:last-child {
+    text-align: center;
+}
+
+/* New: Styles for loading overlay */
+#loading-overlay {
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Styles for Back to Top button */
+#back-to-top-btn {
+    display: none; /* Hidden by default */
+    position: fixed;
+    bottom: 20px;
+    left: 20px; /* Position on the left for RTL layout */
+    z-index: 99;
+    font-size: 18px;
+    border: none;
+    outline: none;
+    background-color: #4f46e5; /* Indigo-600 */
+    color: white;
+    cursor: pointer;
+    padding: 15px;
+    border-radius: 50%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+#back-to-top-btn:hover {
+    background-color: #4338ca; /* Indigo-700 */
+    transform: translateY(-2px);
+}
+
+/* Custom styles for tables on small screens */
+@media (max-width: 768px) {
+    .responsive-table table, .responsive-table thead, .responsive-table tbody, .responsive-table th, .responsive-table td, .responsive-table tr {
+        display: block;
+    }
+    .responsive-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    .responsive-table tr {
+        border: 1px solid #ccc;
+        margin-bottom: 0.625em;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .responsive-table td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        text-align: right;
+        white-space: normal;
+    }
+    .responsive-table td:before {
+        position: absolute;
+        top: 0.5rem;
+        right: 6px;
+        width: 45%;
+        padding-left: 10px;
+        white-space: nowrap;
+        font-weight: bold;
+        content: attr(data-label);
+        text-align: right;
+    }
+    .responsive-table td:last-child {
+        border-bottom: 0;
+    }
+}
+.footer {
+    text-align: center;
+    padding: 1rem;
+    margin-top: 2rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+/* Ensure custom-modal is always on top */
+#custom-modal {
+    z-index: 70; /* Higher than other modals */
+}
+#change-password-modal, #code-input-modal, #maintenance-form-modal, #pending-code-input-modal, #pending-request-form-modal, #execute-repair-modal, #add-machine-modal {
+    z-index: 60; /* Standard modal z-index */
+}

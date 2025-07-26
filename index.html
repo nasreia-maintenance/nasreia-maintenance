@@ -6,86 +6,163 @@
     <title>نظام إدارة الصيانة - محطة الناصرية (Supabase)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- SheetJS (for Excel export) - CDN link -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">\
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .hidden {
-            display: none;
-        }
-        .disabled-button {
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-        /* Custom styles for tables on small screens */
-        @media (max-width: 768px) {
-            .responsive-table table, .responsive-table thead, .responsive-table tbody, .responsive-table th, .responsive-table td, .responsive-table tr {
-                display: block;
-            }
-            .responsive-table thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-            .responsive-table tr {
-                border: 1px solid #ccc;
-                margin-bottom: 0.625em;
-                border-radius: 0.5rem;
-                overflow: hidden;
-            }
-            .responsive-table td {
-                border: none;
-                border-bottom: 1px solid #eee;
-                position: relative;
-                padding-left: 50%;
-                text-align: right;
-                white-space: normal;
-            }
-            .responsive-table td:before {
-                position: absolute;
-                top: 0.5rem;
-                right: 6px;
-                width: 45%;
-                padding-left: 10px;
-                white-space: nowrap;
-                font-weight: bold;
-                content: attr(data-label);
-                text-align: right;
-            }
-            .responsive-table td:last-child {
-                border-bottom: 0;
-            }
-        }
-        .footer {
-            text-align: center;
-            padding: 1rem;
-            margin-top: 2rem;
-            color: #6b7280;
-            font-size: 0.875rem;
-        }
-        /* Ensure custom-modal is always on top */
-        #custom-modal {
-            z-index: 60; /* Higher than change-password-modal */
-        }
-        #change-password-modal {
-            z-index: 50; /* Standard modal z-index */
-        }
-    </style>
+    <!-- Custom CSS (Merged from style.css) - Content is extracted to a separate block -->
+    <!-- Custom JavaScript (Main Application Logic) - Content is extracted to a separate block -->
 </head>
+<style>
+   /* Custom CSS (Merged from style.css) */
+body {
+    font-family: 'Cairo', sans-serif;
+    background-color: #f3f4f6; /* Light gray background */
+}
+
+/* Loading Spinner */
+.loader {
+    border-top-color: #3498db;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Custom styles for tabs */
+.tab-button {
+    @apply text-gray-700 hover:bg-gray-100 transition duration-200;
+}
+
+.tab-button.active-tab {
+    @apply text-blue-700 bg-blue-100 hover:bg-blue-200;
+}
+
+/* Table row hover effect */
+tbody tr:hover {
+    @apply bg-gray-50;
+}
+
+/* Table cell padding and alignment */
+th, td {
+    @apply py-3 px-6;
+}
+
+/* Right alignment for Arabic text in tables */
+th, td {
+    text-align: right;
+}
+
+/* Center alignment for actions column */
+th:last-child, td:last-child {
+    text-align: center;
+}
+
+/* New: Styles for loading overlay */
+#loading-overlay {
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Styles for Back to Top button */
+#back-to-top-btn {
+    display: none; /* Hidden by default */
+    position: fixed;
+    bottom: 20px;
+    left: 20px; /* Position on the left for RTL layout */
+    z-index: 99;
+    font-size: 18px;
+    border: none;
+    outline: none;
+    background-color: #4f46e5; /* Indigo-600 */
+    color: white;
+    cursor: pointer;
+    padding: 15px;
+    border-radius: 50%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+#back-to-top-btn:hover {
+    background-color: #4338ca; /* Indigo-700 */
+    transform: translateY(-2px);
+}
+
+/* Custom styles for tables on small screens */
+@media (max-width: 768px) {
+    .responsive-table table, .responsive-table thead, .responsive-table tbody, .responsive-table th, .responsive-table td, .responsive-table tr {
+        display: block;
+    }
+    .responsive-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    .responsive-table tr {
+        border: 1px solid #ccc;
+        margin-bottom: 0.625em;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .responsive-table td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        text-align: right;
+        white-space: normal;
+    }
+    .responsive-table td:before {
+        position: absolute;
+        top: 0.5rem;
+        right: 6px;
+        width: 45%;
+        padding-left: 10px;
+        white-space: nowrap;
+        font-weight: bold;
+        content: attr(data-label);
+        text-align: right;
+    }
+    .responsive-table td:last-child {
+        border-bottom: 0;
+    }
+}
+.footer {
+    text-align: center;
+    padding: 1rem;
+    margin-top: 2rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+/* Ensure custom-modal is always on top */
+#custom-modal {
+    z-index: 70; /* Higher than other modals */
+}
+#change-password-modal, #code-input-modal, #maintenance-form-modal, #pending-code-input-modal, #pending-request-form-modal, #execute-repair-modal, #add-machine-modal {
+    z-index: 60; /* Standard modal z-index */
+}
+ 
+</style>
 <body class="min-h-screen bg-gray-100 font-cairo text-right">
 
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="flex flex-col items-center text-white">
+            <i class="fas fa-spinner fa-spin text-5xl mb-4"></i>
+            <p class="text-lg">جاري التحميل...</p>
+        </div>
+    </div>
+
     <!-- Modal for messages and confirmations -->
-    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
             <h3 id="modal-title" class="text-xl font-bold mb-4"></h3>
             <p id="modal-message" class="text-gray-700 mb-6"></p>
@@ -96,7 +173,7 @@
     </div>
 
     <!-- Modal for Change Password -->
-    <div id="change-password-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div id="change-password-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
             <h3 class="text-xl font-bold mb-4">تغيير كلمة المرور</h3>
             <form id="change-password-form" class="space-y-4 text-right">
@@ -114,169 +191,40 @@
                 </div>
                 <div class="flex justify-center space-x-4 rtl:space-x-reverse mt-6">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
-                        حفظ التغييرات
+                        <i class="fas fa-save ml-2 rtl:mr-2"></i> حفظ التغييرات
                     </button>
                     <button type="button" onclick="document.getElementById('change-password-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
-                        إلغاء
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Main Application Container -->
-    <div id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
-
-        <!-- Login Section -->
-        <div id="login-section" class="hidden items-center justify-center min-h-screen bg-gradient-to-r from-blue-500 to-purple-600 w-full">
-            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 hover:scale-105">
-                <h2 class="text-4xl font-extrabold text-center text-gray-800 mb-8">تسجيل الدخول</h2>
-                <form id="login-form" class="space-y-6">
-                    <div>
-                        <label for="username" class="block text-gray-700 text-sm font-bold mb-2">اسم المستخدم:</label>
-                        <input type="text" id="username" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل اسم المستخدم" required>
-                    </div>
-                    <div>
-                        <label for="password" class="block text-gray-700 text-sm font-bold mb-2">كلمة المرور:</label>
-                        <input type="password" id="password" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كلمة المرور" required>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 w-full">
-                            تسجيل الدخول
-                        </button>
-                    </div>
-                </form>
-                <p class="text-gray-600 text-center mt-6 text-sm">
-                  بسم الله الرحمن الرحيم
-                    اللهم صلي على سيدنا محمد وعلى آله وصحبه وسلم
-                    اهلا بكم في نظام ادارة الصيانة في الشركة العامة لتوليد الكهرباء في الناصرية
-                </p>
-                <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+    <!-- New: Code Input Modal for Maintenance Record -->
+    <div id="code-input-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+            <h3 class="text-xl font-bold mb-4">إدخال كود الآلة</h3>
+            <div class="mb-4">
+                <label for="machine-code-input" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
+                <input type="text" id="machine-code-input" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كود الآلة" required>
             </div>
-        </div>
-
-        <!-- Dashboard Section -->
-        <div id="dashboard-section" class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 p-4 hidden w-full">
-            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl transform transition-all duration-300 hover:shadow-3xl">
-                <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8">لوحة التحكم الرئيسية</h1>
-                <p class="text-gray-700 text-center mb-6 text-lg">
-                    مرحباً بك في نظام إدارة الصيانة لمحطة الناصرية.
-                </p>
-                <p id="logged-in-user-info" class="text-gray-600 text-center text-sm mb-8">
-                    <!-- User info will be displayed here -->
-                </p>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('machine-log-section')">
-                        <span class="text-5xl mb-4">⚙️</span>
-                        <h3 class="text-xl font-semibold text-gray-800 mb-2">سجل الآلات</h3>
-                        <p class="text-gray-600 text-sm">إدارة وعرض سجلات الآلات.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('maintenance-log-section')">
-                        <span class="text-5xl mb-4">🛠️</span>
-                        <h3 class="text-xl font-semibold text-gray-800 mb-2">سجل الصيانة</h3>
-                        <p class="text-gray-600 text-sm">إضافة وعرض سجلات عمليات الصيانة.</p>
-                    </div>
-                    <div id="account-management-card" class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('account-management-section')">
-                        <span class="text-5xl mb-4">👥</span>
-                        <h3 class="text-xl font-semibold text-gray-800 mb-2">إدارة الحسابات</h3>
-                        <p class="text-gray-600 text-sm">إدارة حسابات المستخدمين وصلاحياتهم.</p>
-                    </div>
-                </div>
-                 <div class="mt-8">
-                    <button onclick="exportAllData()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4">
-                        تصدير جميع البيانات (نسخ احتياطي)
-                    </button>
-                    <!-- New button for changing password -->
-                    <button id="change-password-button" onclick="showChangePasswordModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4 hidden">
-                        تغيير كلمة المرور
-                    </button>
-                </div>
-                <button onclick="logout()" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    تسجيل الخروج
+            <div class="flex justify-center space-x-4 rtl:space-x-reverse">
+                <button id="confirm-code-input" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    <i class="fas fa-check ml-2 rtl:mr-2"></i> موافق
                 </button>
-                <div class="footer">powerd by Eng.Mohamad Aldakak</div>
-            </div>
-        </div>
-
-        <!-- Machine Log Section -->
-        <div id="machine-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-4xl hidden">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل الآلات</h2>
-
-            <div id="machine-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span id="machine-message-text" class="block sm:inline"></span>
-            </div>
-
-            <form id="add-machine-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-                <div class="col-span-full text-xl font-semibold mb-4 text-gray-700">إضافة آلة جديدة</div>
-                <div>
-                    <label for="machine-workLocation" class="block text-gray-700 text-sm font-bold mb-2">موقع العمل:</label>
-                    <input type="text" id="machine-workLocation" name="workLocation" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل موقع العمل" required>
-                </div>
-                <div>
-                    <label for="machine-workPart" class="block text-gray-700 text-sm font-bold mb-2">جزء العمل:</label>
-                    <input type="text" id="machine-workPart" name="workPart" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل جزء العمل" required>
-                </div>
-                <div>
-                    <label for="machine-name" class="block text-gray-700 text-sm font-bold mb-2">اسم الآلة:</label>
-                    <input type="text" id="machine-name" name="machineName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل اسم الآلة" required>
-                </div>
-                <div>
-                    <label for="machine-code" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
-                    <input type="text" id="machine-code" name="machineCode" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كود الآلة" required>
-                </div>
-                <div class="col-span-full flex justify-center mt-4">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                        إضافة آلة
-                    </button>
-                </div>
-            </form>
-
-            <div class="mb-6">
-                <label for="search-machine" class="block text-gray-700 text-sm font-bold mb-2">بحث في سجل الآلات:</label>
-                <input type="text" id="search-machine" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث حسب الموقع، الجزء، الاسم، أو الكود...">
-            </div>
-
-            <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
-                <button onclick="exportMachinesToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    تصدير Excel
+                <button onclick="document.getElementById('code-input-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
                 </button>
             </div>
-
-            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">موقع العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider machine-actions-header">الإجراءات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">سجل الصيانة</th>
-                        </tr>
-                    </thead>
-                    <tbody id="machine-table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Machine rows will be inserted here by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex justify-center mt-8">
-                <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    العودة إلى لوحة التحكم
-                </button>
-            </div>
-            <div class="footer">powerd by Eng.Mohamad Aldakak</div>
         </div>
+    </div>
 
-        <!-- Maintenance Log Section -->
-        <div id="maintenance-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل عمليات الصيانة</h2>
-
-            <div id="maintenance-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span id="maintenance-message-text" class="block sm:inline"></span>
-            </div>
-
-            <form id="add-maintenance-record-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-                <div class="col-span-full text-xl font-semibold mb-4 text-gray-700">إضافة سجل صيانة جديد</div>
+    <!-- New: Maintenance Form Modal (replaces inline form) -->
+    <div id="maintenance-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl text-center">
+            <h3 id="maintenance-form-modal-title" class="text-xl font-bold mb-4">إضافة سجل صيانة</h3>
+            <form id="add-maintenance-record-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
                 <div>
                     <label for="maintenance-date" class="block text-gray-700 text-sm font-bold mb-2">تاريخ العمل:</label>
                     <input type="date" id="maintenance-date" name="date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
@@ -303,7 +251,6 @@
                     <label for="maintenance-machineCode" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
                     <input type="text" id="maintenance-machineCode" name="machineCode" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly disabled>
                 </div>
-                <!-- New field: Maintenance Department -->
                 <div>
                     <label for="maintenance-department" class="block text-gray-700 text-sm font-bold mb-2">قسم الصيانة:</label>
                     <select id="maintenance-department" name="maintenanceDepartment" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
@@ -325,21 +272,481 @@
                     <label for="maintenance-notes" class="block text-gray-700 text-sm font-bold mb-2">ملاحظات:</label>
                     <textarea id="maintenance-notes" name="notes" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أي ملاحظات إضافية..."></textarea>
                 </div>
-                <!-- New field: Data Entry User -->
                 <div>
                     <label for="maintenance-dataEntryUser" class="block text-gray-700 text-sm font-bold mb-2">مدخل البيانات:</label>
                     <input type="text" id="maintenance-dataEntryUser" name="dataEntryUser" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly>
                 </div>
-                <div class="col-span-full flex justify-center mt-4">
+                <div class="col-span-full flex justify-center space-x-4 rtl:space-x-reverse mt-6">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                        إضافة سجل صيانة
+                        <i class="fas fa-plus ml-2 rtl:mr-2"></i> موافق
+                    </button>
+                    <button type="button" onclick="document.getElementById('maintenance-form-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- New: Code Input Modal for Pending Repair Request -->
+    <div id="pending-code-input-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+            <h3 class="text-xl font-bold mb-4">إدخال كود الآلة لطلب الإصلاح</h3>
+            <div class="mb-4">
+                <label for="pending-machine-code-input" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
+                <input type="text" id="pending-machine-code-input" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كود الآلة" required>
+            </div>
+            <div class="flex justify-center space-x-4 rtl:space-x-reverse">
+                <button id="confirm-pending-code-input" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    <i class="fas fa-check ml-2 rtl:mr-2"></i> موافق
+                </button>
+                <button onclick="document.getElementById('pending-code-input-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New: Pending Repair Request Form Modal -->
+    <div id="pending-request-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl text-center">
+            <h3 id="pending-request-form-modal-title" class="text-xl font-bold mb-4">إضافة طلب إصلاح معلق</h3>
+            <form id="add-pending-request-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+                <div>
+                    <label for="pending-date" class="block text-gray-700 text-sm font-bold mb-2">التاريخ:</label>
+                    <input type="date" id="pending-date" name="date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly>
+                </div>
+                <div>
+                    <label for="pending-time" class="block text-gray-700 text-sm font-bold mb-2">الوقت:</label>
+                    <input type="time" id="pending-time" name="time" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly>
+                </div>
+                <div>
+                    <label for="pending-workLocation" class="block text-gray-700 text-sm font-bold mb-2">مكان العمل:</label>
+                    <select id="pending-workLocation" name="workLocation" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                        <option value="">اختر مكان العمل</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="pending-workPart" class="block text-gray-700 text-sm font-bold mb-2">جزء العمل:</label>
+                    <select id="pending-workPart" name="workPart" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" disabled required>
+                        <option value="">اختر جزء العمل</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="pending-machineName" class="block text-gray-700 text-sm font-bold mb-2">الآلة:</label>
+                    <select id="pending-machineName" name="machineName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" disabled required>
+                        <option value="">اختر الآلة</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="pending-machineCode" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
+                    <input type="text" id="pending-machineCode" name="machineCode" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly disabled>
+                </div>
+                <div>
+                    <label for="pending-fault" class="block text-gray-700 text-sm font-bold mb-2">العطل:</label>
+                    <textarea id="pending-fault" name="fault" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="وصف العطل..." required></textarea>
+                </div>
+                <div>
+                    <label for="pending-faultType" class="block text-gray-700 text-sm font-bold mb-2">نوع العطل:</label>
+                    <select id="pending-faultType" name="faultType" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                        <option value="">اختر نوع العطل</option>
+                        <option value="ميكانيك">ميكانيك</option>
+                        <option value="كهرباء">كهرباء</option>
+                        <option value="تحكم">تحكم</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="pending-notes" class="block text-gray-700 text-sm font-bold mb-2">ملاحظات:</label>
+                    <textarea id="pending-notes" name="notes" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أي ملاحظات إضافية..."></textarea>
+                </div>
+                <div>
+                    <label for="pending-dataEntryUser" class="block text-gray-700 text-sm font-bold mb-2">مدخل البيانات:</label>
+                    <input type="text" id="pending-dataEntryUser" name="dataEntryUser" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly>
+                </div>
+                <div class="col-span-full flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                        <i class="fas fa-plus ml-2 rtl:mr-2"></i> موافق
+                    </button>
+                    <button type="button" onclick="document.getElementById('pending-request-form-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New: Execute Repair Modal -->
+    <div id="execute-repair-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+            <h3 class="text-xl font-bold mb-4">تنفيذ طلب الإصلاح</h3>
+            <form id="execute-repair-form" class="space-y-4 text-right">
+                <div>
+                    <label for="performed-work-input" class="block text-gray-700 text-sm font-bold mb-2">العمل المنفذ:</label>
+                    <textarea id="performed-work-input" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="وصف العمل المنفذ..." required></textarea>
+                </div>
+                <div>
+                    <label for="spare-parts-used-input" class="block text-gray-700 text-sm font-bold mb-2">قطع الغيار المستخدمة:</label>
+                    <textarea id="spare-parts-used-input" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="قائمة بقطع الغيار المستخدمة..."></textarea>
+                </div>
+                <div>
+                    <label for="execute-notes-input" class="block text-gray-700 text-sm font-bold mb-2">ملاحظات إضافية:</label>
+                    <textarea id="execute-notes-input" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أي ملاحظات إضافية..."></textarea>
+                </div>
+                <div class="flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-check ml-2 rtl:mr-2"></i> موافق
+                    </button>
+                    <button type="button" onclick="document.getElementById('execute-repair-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New: Add Machine Modal -->
+    <div id="add-machine-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl text-center">
+            <h3 class="text-xl font-bold mb-4">إضافة آلة جديدة</h3>
+            <form id="add-machine-form-modal" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+                <div>
+                    <label for="modal-machine-workLocation" class="block text-gray-700 text-sm font-bold mb-2">موقع العمل:</label>
+                    <input type="text" id="modal-machine-workLocation" name="workLocation" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل موقع العمل" required>
+                </div>
+                <div>
+                    <label for="modal-machine-workPart" class="block text-gray-700 text-sm font-bold mb-2">جزء العمل:</label>
+                    <input type="text" id="modal-machine-workPart" name="workPart" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل جزء العمل" required>
+                </div>
+                <div>
+                    <label for="modal-machine-name" class="block text-gray-700 text-sm font-bold mb-2">اسم الآلة:</label>
+                    <input type="text" id="modal-machine-name" name="machineName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل اسم الآلة" required>
+                </div>
+                <div>
+                    <label for="modal-machine-code" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
+                    <input type="text" id="modal-machine-code" name="machineCode" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كود الآلة" required>
+                </div>
+                <div>
+                    <label for="modal-machine-type" class="block text-gray-700 text-sm font-bold mb-2">النوع:</label>
+                    <input type="text" id="modal-machine-type" name="type" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل نوع الآلة (اختياري)">
+                </div>
+                <div>
+                    <label for="modal-machine-serial" class="block text-gray-700 text-sm font-bold mb-2">الرقم التسلسلي:</label>
+                    <input type="text" id="modal-machine-serial" name="serial_number" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل الرقم التسلسلي (اختياري)">
+                </div>
+                <div class="col-span-full">
+                    <label for="modal-machine-url" class="block text-gray-700 text-sm font-bold mb-2">رابط المرجع (URL):</label>
+                    <input type="url" id="modal-machine-url" name="url" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="https://example.com (اختياري)">
+                </div>
+                <div class="col-span-full flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                        <i class="fas fa-plus ml-2 rtl:mr-2"></i> إضافة آلة
+                    </button>
+                    <button type="button" onclick="document.getElementById('add-machine-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New: Edit Machine Modal -->
+    <div id="edit-machine-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl text-center">
+            <h3 id="edit-machine-modal-title" class="text-xl font-bold mb-4">تعديل بيانات الآلة</h3>
+            <form id="edit-machine-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+                <div>
+                    <label for="edit-modal-machine-workLocation" class="block text-gray-700 text-sm font-bold mb-2">موقع العمل:</label>
+                    <input type="text" id="edit-modal-machine-workLocation" name="workLocation" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="edit-modal-machine-workPart" class="block text-gray-700 text-sm font-bold mb-2">جزء العمل:</label>
+                    <input type="text" id="edit-modal-machine-workPart" name="workPart" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="edit-modal-machine-name" class="block text-gray-700 text-sm font-bold mb-2">اسم الآلة:</label>
+                    <input type="text" id="edit-modal-machine-name" name="machineName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="edit-modal-machine-code" class="block text-gray-700 text-sm font-bold mb-2">كود الآلة:</label>
+                    <input type="text" id="edit-modal-machine-code" name="machineCode" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="edit-modal-machine-type" class="block text-gray-700 text-sm font-bold mb-2">النوع:</label>
+                    <input type="text" id="edit-modal-machine-type" name="type" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="edit-modal-machine-serial" class="block text-gray-700 text-sm font-bold mb-2">الرقم التسلسلي:</label>
+                    <input type="text" id="edit-modal-machine-serial" name="serial_number" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div class="col-span-full">
+                    <label for="edit-modal-machine-url" class="block text-gray-700 text-sm font-bold mb-2">رابط المرجع (URL):</label>
+                    <input type="url" id="edit-modal-machine-url" name="url" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div class="col-span-full flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                        <i class="fas fa-save ml-2 rtl:mr-2"></i> حفظ
+                    </button>
+                    <button type="button" onclick="document.getElementById('edit-machine-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New: Edit Maintenance Record Modal -->
+    <div id="edit-maintenance-record-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+            <h3 id="edit-maintenance-record-modal-title" class="text-xl font-bold mb-4">تعديل سجل الصيانة</h3>
+            <form id="edit-maintenance-record-form" class="space-y-4 text-right">
+                <div>
+                    <label for="edit-maintenance-performedWork" class="block text-gray-700 text-sm font-bold mb-2">العمل المنفذ:</label>
+                    <textarea id="edit-maintenance-performedWork" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required></textarea>
+                </div>
+                <div>
+                    <label for="edit-maintenance-sparePartsUsed" class="block text-gray-700 text-sm font-bold mb-2">قطع الغيار المستخدمة:</label>
+                    <textarea id="edit-maintenance-sparePartsUsed" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"></textarea>
+                </div>
+                <div>
+                    <label for="edit-maintenance-notes" class="block text-gray-700 text-sm font-bold mb-2">ملاحظات:</label>
+                    <textarea id="edit-maintenance-notes" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-save ml-2 rtl:mr-2"></i> حفظ
+                    </button>
+                    <button type="button" onclick="document.getElementById('edit-maintenance-record-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New: Edit Pending Repair Request Modal -->
+    <div id="edit-pending-request-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+            <h3 id="edit-pending-request-modal-title" class="text-xl font-bold mb-4">تعديل طلب الإصلاح المعلق</h3>
+            <form id="edit-pending-request-form" class="space-y-4 text-right">
+                <div>
+                    <label for="edit-pending-fault" class="block text-gray-700 text-sm font-bold mb-2">العطل:</label>
+                    <textarea id="edit-pending-fault" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required></textarea>
+                </div>
+                <div>
+                    <label for="edit-pending-faultType" class="block text-gray-700 text-sm font-bold mb-2">نوع العطل:</label>
+                    <select id="edit-pending-faultType" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" required>
+                        <option value="ميكانيك">ميكانيك</option>
+                        <option value="كهرباء">كهرباء</option>
+                        <option value="تحكم">تحكم</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit-pending-notes" class="block text-gray-700 text-sm font-bold mb-2">ملاحظات:</label>
+                    <textarea id="edit-pending-notes" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex justify-center space-x-4 rtl:space-x-reverse mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-save ml-2 rtl:mr-2"></i> حفظ
+                    </button>
+                    <button type="button" onclick="document.getElementById('edit-pending-request-modal').classList.add('hidden');" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        <i class="fas fa-times ml-2 rtl:mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Main Application Container -->
+    <div id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
+
+        <!-- Login Section -->
+        <div id="login-section" class="hidden items-center justify-center min-h-screen bg-gradient-to-r from-blue-500 to-purple-600 w-full">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 hover:scale-105">
+                <h2 class="text-4xl font-extrabold text-center text-gray-800 mb-8">تسجيل الدخول</h2>
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label for="username" class="block text-gray-700 text-sm font-bold mb-2">البريد الإلكتروني:</label>
+                        <input type="email" id="username" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل بريدك الإلكتروني (مثال: user@example.com)" required>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-gray-700 text-sm font-bold mb-2">كلمة المرور:</label>
+                        <input type="password" id="password" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كلمة المرور" required>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 w-full">
+                            <i class="fas fa-sign-in-alt ml-2 rtl:mr-2"></i> تسجيل الدخول
+                        </button>
+                    </div>
+                </form>
+                <p class="text-gray-600 text-center mt-6 text-sm">
+                  بسم الله الرحمن الرحيم
+                    اللهم صلي على سيدنا محمد وعلى آله وصحبه وسلم
+                    اهلا بكم في نظام ادارة الصيانة في الشركة العامة لتوليد الكهرباء في الناصرية
+                </p>
+                <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 p-4 hidden w-full">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl transform transition-all duration-300 hover:shadow-3xl">
+                <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8">لوحة التحكم الرئيسية</h1>
+                <p class="text-gray-700 text-center mb-6 text-lg">
+                    مرحباً بك في نظام إدارة الصيانة لمحطة الناصرية.
+                </p>
+                <p id="logged-in-user-info" class="text-gray-600 text-center text-sm mb-8">
+                    <!-- User info will be displayed here -->
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('machine-log-section')">
+                        <span class="text-5xl mb-4"><i class="fas fa-cogs"></i></span>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">سجل الآلات</h3>
+                        <p class="text-gray-600 text-sm">إدارة وعرض سجلات الآلات.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('maintenance-log-section')">
+                        <span class="text-5xl mb-4"><i class="fas fa-tools"></i></span>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">سجل الصيانة</h3>
+                        <p class="text-gray-600 text-sm">إضافة وعرض سجلات عمليات الصيانة.</p>
+                    </div>
+                    <!-- New: Pending Repair Requests Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('pending-requests-section')">
+                        <span class="text-5xl mb-4"><i class="fas fa-clipboard-list"></i></span>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">سجل طلبات الإصلاح المعلقة</h3>
+                        <p class="text-gray-600 text-sm">إدارة وعرض طلبات الإصلاح التي بانتظار التنفيذ.</p>
+                    </div>
+                    <div id="account-management-card" class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('account-management-section')">
+                        <span class="text-5xl mb-4"><i class="fas fa-users-cog"></i></span>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">إدارة الحسابات</h3>
+                        <p class="text-gray-600 text-sm">إدارة حسابات المستخدمين وصلاحياتهم.</p>
+                    </div>
+                </div>
+                 <div class="mt-8">
+                    <button id="export-all-data-button" onclick="exportAllData()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4 hidden">
+                        <i class="fas fa-file-export ml-2 rtl:mr-2"></i> تصدير جميع البيانات (نسخ احتياطي)
+                    </button>
+                    <input type="file" id="import-file-input" accept=".json" class="hidden">
+                    <button id="import-all-data-button" onclick="document.getElementById('import-file-input').click()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4 hidden">
+                        <i class="fas fa-file-import ml-2 rtl:mr-2"></i> استيراد البيانات
+                    </button>
+
+                    <!-- New button for changing password -->
+                    <button id="change-password-button" onclick="showChangePasswordModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 mb-4 hidden">
+                        <i class="fas fa-key ml-2 rtl:mr-2"></i> تغيير كلمة المرور
+                    </button>
+                </div>
+                <button onclick="logout()" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-sign-out-alt ml-2 rtl:mr-2"></i> تسجيل الخروج
+                </button>
+                <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+            </div>
+        </div>
+
+        <!-- Machine Log Section -->
+        <div id="machine-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-6xl hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل الآلات</h2>
+
+            <div id="machine-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <span id="machine-message-text" class="block sm:inline"></span>
+            </div>
+
+            <!-- Add Machine Button (replaces the inline form) -->
+            <div class="flex justify-center mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+                <button id="add-machine-btn" onclick="showAddMachineModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-plus ml-2 rtl:mr-2"></i> إضافة آلة جديدة
+                </button>
+            </div>
+            <!-- End Add Machine Button -->
 
             <div class="mb-6">
-                <label for="search-maintenance" class="block text-gray-700 text-sm font-bold mb-2">بحث في سجل الصيانة:</label>
-                <input type="text" id="search-maintenance" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث حسب التاريخ، الموقع، الآلة، العمل المنفذ...">
+                <label for="search-machine" class="block text-gray-700 text-sm font-bold mb-2">بحث في سجل الآلات:</label>
+                <input type="text" id="search-machine" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث حسب الموقع، الجزء، الاسم، الكود، النوع...">
+            </div>
+
+            <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
+                <button onclick="exportMachinesToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> تصدير Excel
+                </button>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">موقع العمل</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الآلة</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">النوع</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الرقم التسلسلي</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المرجع</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider machine-actions-header">الإجراءات</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">سجل الصيانة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="machine-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Machine rows will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-center mt-8">
+                <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
+                </button>
+            </div>
+            <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+        </div>
+
+        <!-- Maintenance Log Section -->
+        <div id="maintenance-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل عمليات الصيانة</h2>
+
+            <div id="maintenance-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <span id="maintenance-message-text" class="block sm:inline"></span>
+            </div>
+
+            <!-- New: Buttons for adding maintenance records -->
+            <div id="add-maintenance-buttons" class="flex justify-center gap-4 mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+                <button onclick="showAddMaintenanceByCodeModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-barcode ml-2 rtl:mr-2"></i> إضافة سجل تبعاً للكود
+                </button>
+                <button onclick="showAddMaintenanceByLocationModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-map-marker-alt ml-2 rtl:mr-2"></i> إضافة سجل تبعاً لمكان العمل
+                </button>
+            </div>
+            <!-- End New: Buttons for adding maintenance records -->
+
+            <div class="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">بحث وتصفية سجل الصيانة:</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="search-maintenance-keyword" class="block text-gray-700 text-sm font-bold mb-2">كلمة مفتاحية:</label>
+                        <input type="text" id="search-maintenance-keyword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث في كل الحقول...">
+                    </div>
+                    <div>
+                        <label for="filter-maintenance-location" class="block text-gray-700 text-sm font-bold mb-2">موقع العمل:</label>
+                        <select id="filter-maintenance-location" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                            <option value="">الكل</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-maintenance-machine" class="block text-gray-700 text-sm font-bold mb-2">الآلة:</label>
+                        <select id="filter-maintenance-machine" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                            <option value="">الكل</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-maintenance-department" class="block text-gray-700 text-sm font-bold mb-2">قسم الصيانة:</label>
+                        <select id="filter-maintenance-department" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                        <option value="">الكل</option>
+                            <option value="ميكانيك">ميكانيك</option>
+                            <option value="كهرباء">كهرباء</option>
+                            <option value="تحكم">تحكم</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
@@ -355,15 +762,18 @@
                     </div>
                     <div class="flex items-end space-x-2 rtl:space-x-reverse">
                         <button onclick="exportMaintenanceToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 w-full">
-                            Excel
+                            <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> Excel
                         </button>
                     </div>
                 </div>
             </div>
 
             <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
-                <button onclick="renderMaintenanceTable()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    عرض كل السجلات
+                <button onclick="applyMaintenanceFilters()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-filter ml-2 rtl:mr-2"></i> تطبيق الفلاتر
+                </button>
+                <button onclick="resetMaintenanceFilters()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-undo ml-2 rtl:mr-2"></i> إعادة تعيين
                 </button>
             </div>
 
@@ -376,11 +786,11 @@
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الآلة</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قسم الصيانة</th> <!-- New Header -->
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قسم الصيانة</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العمل المنفذ</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قطع الغيار</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th> <!-- New Header -->
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider maintenance-actions-header">الإجراءات</th>
                         </tr>
                     </thead>
@@ -391,7 +801,100 @@
             </div>
             <div class="flex justify-center mt-8">
                 <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    العودة إلى لوحة التحكم
+                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
+                </button>
+            </div>
+            <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+        </div>
+
+        <!-- New: Pending Repair Requests Section -->
+        <div id="pending-requests-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل طلبات الإصلاح المعلقة</h2>
+
+            <div id="pending-requests-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <span id="pending-requests-message-text" class="block sm:inline"></span>
+            </div>
+
+            <!-- Buttons for adding pending repair requests -->
+            <div id="add-pending-request-buttons" class="flex justify-center gap-4 mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+                <button onclick="showAddPendingByCodeModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-barcode ml-2 rtl:mr-2"></i> إضافة طلب تبعاً للكود
+                </button>
+                <button onclick="showAddPendingByLocationModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-map-marker-alt ml-2 rtl:mr-2"></i> إضافة طلب تبعاً لمكان العمل
+                </button>
+            </div>
+
+            <div class="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">بحث وتصفية سجل طلبات الإصلاح:</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="search-pending-keyword" class="block text-gray-700 text-sm font-bold mb-2">كلمة مفتاحية:</label>
+                        <input type="text" id="search-pending-keyword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث في كل الحقول...">
+                    </div>
+                    <div>
+                        <label for="filter-pending-location" class="block text-gray-700 text-sm font-bold mb-2">موقع العمل:</label>
+                        <select id="filter-pending-location" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                            <option value="">الكل</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-pending-machine" class="block text-gray-700 text-sm font-bold mb-2">الآلة:</label>
+                        <select id="filter-pending-machine" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                            <option value="">الكل</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-pending-faultType" class="block text-gray-700 text-sm font-bold mb-2">نوع العطل:</label>
+                        <select id="filter-pending-faultType" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                            <option value="">الكل</option>
+                            <option value="ميكانيك">ميكانيك</option>
+                            <option value="كهرباء">كهرباء</option>
+                            <option value="تحكم">تحكم</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
+                <button onclick="applyPendingRequestFilters()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-filter ml-2 rtl:mr-2"></i> تطبيق الفلاتر
+                </button>
+                <button onclick="resetPendingRequestFilters()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-undo ml-2 rtl:mr-2"></i> إعادة تعيين
+                </button>
+                <button onclick="exportPendingRequestsToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> تصدير Excel
+                </button>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التاريخ</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الوقت</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مكان العمل</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الآلة</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العطل</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نوع العطل</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider pending-actions-header">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-requests-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Pending repair request rows will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-center mt-8">
+                <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
                 </button>
             </div>
             <div class="footer">powerd by Eng.Mohamad Aldakak</div>
@@ -408,24 +911,23 @@
             <form id="add-user-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
                 <div class="col-span-full text-xl font-semibold mb-4 text-gray-700">إضافة مستخدم جديد</div>
                 <div>
-                    <label for="new-username" class="block text-gray-700 text-sm font-bold mb-2">اسم المستخدم:</label>
-                    <input type="text" id="new-username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل اسم المستخدم" required>
+                    <label for="new-username" class="block text-gray-700 text-sm font-bold mb-2">البريد الإلكتروني:</label>
+                    <input type="email" id="new-username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل البريد الإلكتروني (مثال: user@example.com)" required>
                 </div>
                 <div>
                     <label for="new-password" class="block text-gray-700 text-sm font-bold mb-2">كلمة المرور:</label>
                     <input type="password" id="new-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="أدخل كلمة المرور" required>
                 </div>
                 <div class="col-span-full">
-                    <label for="new-role" class="block text-gray-700 text-sm font-bold mb-2">الدور:</label>
-                    <select id="new-role" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
-                        <option value="user">مستخدم</option>
-                        <option value="normal_admin">مسؤول عادي</option>
-                        <option value="admin">مسؤول</option>
-                    </select>
+                    <label for="new-role-display" class="block text-gray-700 text-sm font-bold mb-2">الدور (يتم تحديده تلقائياً من البريد الإلكتروني):</label>
+                    <input type="text" id="new-role-display" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight focus:outline-none focus:shadow-outline" readonly>
+                    <p class="text-xs text-gray-500 mt-1">
+                        الدور يعتمد على الجزء بعد '@' في البريد الإلكتروني (admin, maintenance, operation, user).
+                    </p>
                 </div>
                 <div class="col-span-full flex justify-center mt-4">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                        إضافة مستخدم
+                        <i class="fas fa-user-plus ml-2 rtl:mr-2"></i> إضافة مستخدم
                     </button>
                 </div>
             </form>
@@ -434,7 +936,7 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم المستخدم</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم المستخدم (البريد الإلكتروني)</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الدور</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الإجراءات</th>
                         </tr>
@@ -446,949 +948,17 @@
             </div>
             <div class="flex justify-center mt-8">
                 <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    العودة إلى لوحة التحكم
+                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
                 </button>
             </div>
             <div class="footer">powerd by Eng.Mohamad Aldakak</div>
         </div>
     </div>
 
-    <script>
-        // --- Supabase Initialization ---
-        const supabaseUrl = 'https://oinueaolypaewfwobyrv.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pbnVlYW9seXBhZXdmd29ieXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTQwMTAsImV4cCI6MjA2ODQzMDAxMH0.pSUrXHq5F3WiuBovmU-FW0aPs22BLrPDWXoKIKMEpyE';
-        window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
-        // Global data storage
-        window.machines = [];
-        window.maintenanceRecords = [];
-        window.users = []; // Stores user objects: { id, username, password, role }
-        window.loggedInUser = null;
-        window.loggedInRole = null;
-
-        // --- Utility Functions ---
-
-        function showModal(title, message, buttons) {
-            const modal = document.getElementById('custom-modal');
-            document.getElementById('modal-title').textContent = title;
-            document.getElementById('modal-message').textContent = message;
-            const modalButtons = document.getElementById('modal-buttons');
-            modalButtons.innerHTML = ''; // Clear existing buttons
-
-            buttons.forEach(btn => {
-                const buttonElement = document.createElement('button');
-                buttonElement.textContent = btn.text;
-                buttonElement.className = `py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out ${btn.className || 'bg-blue-600 hover:bg-blue-700 text-white'}`;
-                buttonElement.onclick = () => {
-                    modal.classList.add('hidden');
-                    if (btn.onClick) btn.onClick();
-                };
-                modalButtons.appendChild(buttonElement);
-            });
-            modal.classList.remove('hidden');
-        }
-
-        function showSection(sectionId) {
-            // Hide all main sections
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('dashboard-section').classList.add('hidden');
-            document.getElementById('machine-log-section').classList.add('hidden');
-            document.getElementById('maintenance-log-section').classList.add('hidden');
-            document.getElementById('account-management-section').classList.add('hidden');
-
-            const sectionToShow = document.getElementById(sectionId);
-            if(sectionToShow) {
-                sectionToShow.classList.remove('hidden');
-                if(['login-section', 'dashboard-section'].includes(sectionId)){
-                    sectionToShow.classList.add('flex');
-                }
-            }
-
-            if (sectionId === 'machine-log-section') {
-                renderMachineTable();
-                const addMachineForm = document.getElementById('add-machine-form');
-                if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                    addMachineForm.classList.remove('hidden');
-                } else {
-                    addMachineForm.classList.add('hidden');
-                }
-            }
-            if (sectionId === 'maintenance-log-section') {
-                renderMaintenanceTable();
-                const addMaintenanceForm = document.getElementById('add-maintenance-record-form');
-                if (window.machines.length === 0) {
-                    showMessage('maintenance-message', 'يرجى إضافة آلات في قسم "سجل الآلات" أولاً قبل إضافة سجلات صيانة.', 'error');
-                    addMaintenanceForm.classList.add('hidden');
-                } else {
-                    if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                        addMaintenanceForm.classList.remove('hidden');
-                        populateMaintenanceDropdowns();
-                    } else {
-                        addMaintenanceForm.classList.add('hidden');
-                    }
-                }
-            }
-            if (sectionId === 'account-management-section') {
-                if (window.loggedInRole !== 'admin') {
-                    showModal('خطأ في الصلاحيات', 'ليس لديك صلاحيات للوصول إلى إدارة الحسابات.', [{ text: 'موافق', onClick: () => showSection('dashboard-section') }]);
-                    return;
-                }
-                renderUsersTable();
-            }
-            if (sectionId === 'dashboard-section') {
-                document.getElementById('logged-in-user-info').textContent = `مرحباً، ${window.loggedInUser} (${window.loggedInRole === 'admin' ? 'مسؤول' : (window.loggedInRole === 'normal_admin' ? 'مسؤول عادي' : 'مستخدم')})`;
-                document.getElementById('account-management-card').style.display = window.loggedInRole === 'admin' ? 'flex' : 'none';
-                // Show/hide change password button based on role
-                const changePasswordButton = document.getElementById('change-password-button');
-                if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                    changePasswordButton.classList.remove('hidden');
-                } else {
-                    changePasswordButton.classList.add('hidden');
-                }
-            }
-        }
-
-        function showMessage(elementId, text, type = 'info') {
-            const messageDiv = document.getElementById(elementId);
-            const messageText = document.getElementById(elementId + '-text');
-            messageText.textContent = text;
-            messageDiv.className = 'p-4 mb-4 text-sm rounded-lg'; // Reset classes
-            switch(type) {
-                case 'success':
-                    messageDiv.classList.add('bg-green-100', 'text-green-800');
-                    break;
-                case 'error':
-                     messageDiv.classList.add('bg-red-100', 'text-red-800');
-                    break;
-                default:
-                     messageDiv.classList.add('bg-blue-100', 'text-blue-800');
-            }
-            messageDiv.classList.remove('hidden');
-            setTimeout(() => hideMessage(elementId), 5000);
-        }
-
-        function hideMessage(elementId) {
-            document.getElementById(elementId).classList.add('hidden');
-        }
-
-        // --- Authentication Functions ---
-        document.getElementById('login-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            // Removed .single() to prevent PGRST116 error if multiple or no rows are returned
-            const { data, error } = await window.supabase
-                .from('app_users')
-                .select('*')
-                .eq('username', username)
-                .eq('password', password); 
-
-            if (error) {
-                console.error("Error during login:", error);
-                showModal('خطأ في تسجيل الدخول', `فشل تسجيل الدخول: ${error.message}`, [{ text: 'موافق' }]);
-            } else if (!data || data.length === 0) {
-                // No user found with the given credentials
-                showModal('خطأ في تسجيل الدخول', 'اسم المستخدم أو كلمة المرور غير صحيحة.', [{ text: 'موافق' }]);
-            } else {
-                // Assuming the first match is the correct one if duplicates exist (should ideally be prevented by unique constraint in DB)
-                const user = data[0];
-                window.loggedInUser = user.username;
-                window.loggedInRole = user.role;
-                // Store user info in session storage for persistence across reloads
-                sessionStorage.setItem('loggedInUser', JSON.stringify({ username: user.username, role: user.role }));
-                await fetchAllData(); // Fetch all data after successful login
-                showSection('dashboard-section');
-            }
-        });
-
-        function logout() {
-            showModal('تسجيل الخروج', 'هل أنت متأكد أنك تريد تسجيل الخروج؟', [
-                { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: () => {
-                    window.loggedInUser = null;
-                    window.loggedInRole = null;
-                    sessionStorage.removeItem('loggedInUser');
-                    window.location.reload();
-                }},
-                { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
-            ]);
-        }
-        
-        // --- Data Fetching and Real-time Setup ---
-        async function fetchMachines() {
-            const { data, error } = await window.supabase.from('machines').select('*');
-            if (error) {
-                console.error('Error fetching machines:', error);
-                showModal('خطأ في جلب البيانات', `فشل جلب بيانات الآلات: ${error.message}`, [{ text: 'موافق' }]);
-            } else {
-                // Sort machines by workLocation alphabetically
-                window.machines = data.sort((a, b) => a.workLocation.localeCompare(b.workLocation));
-                renderMachineTable();
-                populateMaintenanceDropdowns();
-            }
-        }
-
-        async function fetchMaintenanceRecords() {
-             const { data, error } = await window.supabase.from('maintenanceRecords').select('*');
-            if (error) {
-                console.error('Error fetching maintenance records:', error);
-                showModal('خطأ في جلب البيانات', `فشل جلب سجلات الصيانة: ${error.message}`, [{ text: 'موافق' }]);
-            } else {
-                // Sort maintenance records by date in descending order (most recent first)
-                window.maintenanceRecords = data.sort((a, b) => new Date(b.date) - new Date(a.date));
-                renderMaintenanceTable();
-            }
-        }
-
-        async function fetchUsers() {
-            const { data, error } = await window.supabase.from('app_users').select('*');
-            if (error) {
-                console.error('Error fetching users:', error);
-                showModal('خطأ في جلب البيانات', `فشل جلب بيانات المستخدمين: ${error.message}`, [{ text: 'موافق' }]);
-            } else {
-                window.users = data;
-                renderUsersTable();
-            }
-        }
-        
-        async function fetchAllData() {
-            await Promise.all([fetchMachines(), fetchMaintenanceRecords(), fetchUsers()]);
-        }
-
-        function setupSupabaseListeners() {
-            window.supabase.channel('public:machines')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'machines' }, payload => {
-                    console.log('Machine change detected:', payload);
-                    fetchMachines(); // Re-fetch machines to update the table
-                })
-                .subscribe();
-            
-            window.supabase.channel('public:maintenanceRecords')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenanceRecords' }, payload => {
-                    console.log('Maintenance record change detected:', payload);
-                    fetchMaintenanceRecords(); // Re-fetch maintenance records to update the table
-                })
-                .subscribe();
-
-            window.supabase.channel('public:app_users')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, payload => {
-                    console.log('User change detected:', payload);
-                    fetchUsers(); // Re-fetch users to update the table
-                })
-                .subscribe();
-        }
-
-        // --- Export All Data ---
-        async function exportAllData() {
-            try {
-                const { data: machines, error: machinesError } = await window.supabase.from('machines').select('*');
-                if (machinesError) throw machinesError;
-
-                const { data: maintenanceRecords, error: maintenanceError } = await window.supabase.from('maintenanceRecords').select('*');
-                if (maintenanceError) throw maintenanceError;
-
-                const { data: users, error: usersError } = await window.supabase.from('app_users').select('*');
-                if (usersError) throw usersError;
-
-                const allData = { users, machines, maintenanceRecords };
-                const dataStr = JSON.stringify(allData, null, 2);
-                const dataBlob = new Blob([dataStr], {type: "application/json"});
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(dataBlob);
-                link.download = "supabase_backup.json";
-                link.click();
-                URL.revokeObjectURL(link.href);
-                showModal('نجاح', 'تم تصدير جميع البيانات من Supabase بنجاح!', [{text: 'حسنًا'}]);
-            } catch (error) {
-                showModal('خطأ في التصدير', `فشل تصدير الملف من Supabase: ${error.message}`, [{text: 'موافق'}]);
-            }
-        }
-
-
-        // --- Machine Log Functions ---
-        function renderMachineTable(filteredMachines = window.machines) {
-            const tableBody = document.getElementById('machine-table-body');
-            tableBody.innerHTML = '';
-            const actionsHeader = document.querySelector('.machine-actions-header');
-            
-            if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                actionsHeader.classList.remove('hidden');
-            } else {
-                actionsHeader.classList.add('hidden');
-            }
-
-            if (filteredMachines.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد آلات لعرضها.</td></tr>`;
-                return;
-            }
-
-            filteredMachines.forEach(machine => {
-                const row = tableBody.insertRow();
-                row.setAttribute('data-id', machine.id);
-                let actionsHtml = '';
-                if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                    actionsHtml = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
-                            <button onclick="editMachine('${machine.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">تعديل</button>
-                            <button onclick="deleteMachine('${machine.id}', '${machine.machineCode}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
-                        </td>`;
-                } else {
-                    actionsHtml = `<td class="hidden"></td>`;
-                }
-
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${machine.workLocation}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${machine.workPart}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم الآلة">${machine.machineName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${machine.machineCode}</td>
-                    ${actionsHtml}
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="سجل الصيانة">
-                        <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs">سجل الآلة</button>
-                    </td>`;
-            });
-        }
-
-        document.getElementById('add-machine-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('machine-message', 'ليس لديك صلاحية لإضافة آلات.', 'error');
-                return;
-            }
-            const newMachine = {
-                workLocation: document.getElementById('machine-workLocation').value.trim(),
-                workPart: document.getElementById('machine-workPart').value.trim(),
-                machineName: document.getElementById('machine-name').value.trim(),
-                machineCode: document.getElementById('machine-code').value.trim()
-            };
-            if (!newMachine.workLocation || !newMachine.workPart || !newMachine.machineName || !newMachine.machineCode) {
-                showMessage('machine-message', 'الرجاء ملء جميع الحقول.', 'error');
-                return;
-            }
-            if (window.machines.some(m => m.machineCode === newMachine.machineCode)) {
-                showMessage('machine-message', 'كود الآلة هذا موجود بالفعل. يرجى استخدام كود فريد.', 'error');
-                return;
-            }
-
-            const { error } = await window.supabase.from('machines').insert([newMachine]);
-            if (error) {
-                console.error("Error adding machine:", error);
-                showMessage('machine-message', `فشل إضافة الآلة: ${error.message}`, 'error');
-            } else {
-                document.getElementById('add-machine-form').reset();
-                showMessage('machine-message', 'تمت إضافة الآلة بنجاح!', 'success');
-                await fetchMachines(); // Re-fetch and re-render the table
-            }
-        });
-
-        function editMachine(id) {
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('machine-message', 'ليس لديك صلاحية لتعديل الآلات.', 'error');
-                return;
-            }
-            const row = document.querySelector(`#machine-table-body tr[data-id='${id}']`);
-            const machine = window.machines.find(m => m.id == id);
-            if (!row || !machine) return;
-            row.innerHTML = `
-                <td class="px-6 py-4" data-label="موقع العمل"><input type="text" value="${machine.workLocation}" class="w-full p-1 border rounded" id="edit-workLocation-${id}"></td>
-                <td class="px-6 py-4" data-label="جزء العمل"><input type="text" value="${machine.workPart}" class="w-full p-1 border rounded" id="edit-workPart-${id}"></td>
-                <td class="px-6 py-4" data-label="اسم الآلة"><input type="text" value="${machine.machineName}" class="w-full p-1 border rounded" id="edit-machineName-${id}"></td>
-                <td class="px-6 py-4" data-label="كود الآلة"><input type="text" value="${machine.machineCode}" class="w-full p-1 border rounded" id="edit-machineCode-${id}"></td>
-                <td class="px-6 py-4" data-label="الإجراءات">
-                    <button onclick="saveMachine('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                    <button onclick="renderMachineTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="سجل الصيانة">
-                        <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs">سجل الآلة</button>
-                    </td>`;
-        }
-
-        async function saveMachine(id) {
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('machine-message', 'ليس لديك صلاحية لحفظ تعديلات الآلات.', 'error');
-                return;
-            }
-            const updatedMachine = {
-                workLocation: document.getElementById(`edit-workLocation-${id}`).value.trim(),
-                workPart: document.getElementById(`edit-workPart-${id}`).value.trim(),
-                machineName: document.getElementById(`edit-machineName-${id}`).value.trim(),
-                machineCode: document.getElementById(`edit-machineCode-${id}`).value.trim()
-            };
-            if (!updatedMachine.workLocation || !updatedMachine.workPart || !updatedMachine.machineName || !updatedMachine.machineCode) {
-                showMessage('machine-message', 'الرجاء ملء جميع الحقول.', 'error');
-                return;
-            }
-            if (window.machines.some(m => m.id != id && m.machineCode === updatedMachine.machineCode)) {
-                showMessage('machine-message', 'كود الآلة موجود بالفعل لآلة أخرى.', 'error');
-                return;
-            }
-
-            const { error } = await window.supabase.from('machines').update(updatedMachine).eq('id', id);
-             if (error) {
-                console.error("Error updating machine:", error);
-                showMessage('machine-message', `فشل تحديث الآلة: ${error.message}`, 'error');
-            } else {
-                showMessage('machine-message', 'تم تحديث الآلة بنجاح!', 'success');
-                await fetchMachines(); // Re-fetch and re-render the table
-            }
-        }
-
-        function deleteMachine(id, machineCode) {
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('machine-message', 'ليس لديك صلاحية لحذف الآلات.', 'error');
-                return;
-            }
-            showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف هذه الآلة؟ سيؤدي هذا إلى حذف سجلات الصيانة المرتبطة بها أيضًا.', [
-                { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    // First, delete associated maintenance records
-                    const { error: deleteRecordsError } = await window.supabase
-                        .from('maintenanceRecords')
-                        .delete()
-                        .eq('machineCode', machineCode);
-
-                    if (deleteRecordsError) {
-                        console.error("Error deleting maintenance records:", deleteRecordsError);
-                        showMessage('machine-message', `فشل حذف سجلات الصيانة: ${deleteRecordsError.message}`, 'error');
-                        return;
-                    }
-                    
-                    // Then, delete the machine
-                    const { error: deleteMachineError } = await window.supabase
-                        .from('machines')
-                        .delete()
-                        .eq('id', id);
-
-                    if (deleteMachineError) {
-                        console.error("Error deleting machine:", deleteMachineError);
-                        showMessage('machine-message', `فشل حذف الآلة: ${deleteMachineError.message}`, 'error');
-                    } else {
-                        showMessage('machine-message', 'تم حذف الآلة وسجلاتها بنجاح!', 'success');
-                        await fetchMachines(); // Re-fetch and re-render the table
-                        await fetchMaintenanceRecords(); // Also update maintenance records as they might have been deleted
-                    }
-                }},
-                { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
-            ]);
-        }
-
-        document.getElementById('search-machine').addEventListener('input', function(event) {
-            const searchTerm = event.target.value.toLowerCase();
-            const filteredMachines = window.machines.filter(machine => 
-                machine.workLocation.toLowerCase().includes(searchTerm) ||
-                machine.workPart.toLowerCase().includes(searchTerm) ||
-                machine.machineName.toLowerCase().includes(searchTerm) ||
-                machine.machineCode.toLowerCase().includes(searchTerm)
-            );
-            renderMachineTable(filteredMachines);
-        });
-
-        function viewMachineMaintenance(machineCode) {
-            const filteredRecords = window.maintenanceRecords.filter(record => record.machineCode === machineCode);
-            showSection('maintenance-log-section');
-            renderMaintenanceTable(filteredRecords);
-            showMessage('maintenance-message', `عرض سجلات الصيانة للآلة ذات الكود: ${machineCode}`, 'info');
-        }
-
-        // --- Maintenance Log Functions ---
-        function renderMaintenanceTable(filteredRecords = window.maintenanceRecords) {
-            const tableBody = document.getElementById('maintenance-table-body');
-            tableBody.innerHTML = '';
-            const actionsHeader = document.querySelector('#maintenance-log-section .maintenance-actions-header');
-            if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                actionsHeader.classList.remove('hidden');
-            } else {
-                actionsHeader.classList.add('hidden');
-            }
-
-            if (filteredRecords.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد سجلات صيانة لعرضها.</td></tr>`;
-                return;
-            }
-            filteredRecords.forEach(record => {
-                const row = tableBody.insertRow();
-                row.setAttribute('data-id', record.id);
-                row.classList.add('hover:bg-gray-50');
-                let actionsHtml = '';
-                if (window.loggedInRole === 'admin' || window.loggedInRole === 'normal_admin') {
-                    actionsHtml = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
-                            <button onclick="editMaintenanceRecord('${record.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">تعديل</button>
-                            <button onclick="deleteMaintenanceRecord('${record.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
-                        </td>`;
-                } else {
-                    actionsHtml = `<td class="hidden"></td>`;
-                }
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${record.workLocation}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${record.workPart}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الآلة">${record.machineName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${record.machineCode}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="قسم الصيانة">${record.maintenanceDepartment || ''}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900" data-label="العمل المنفذ"><div class="max-w-xs truncate" title="${record.performedWork}">${record.performedWork}</div></td>
-                    <td class="px-6 py-4 text-sm text-gray-900" data-label="قطع الغيار"><div class="max-w-xs truncate" title="${record.sparePartsUsed}">${record.sparePartsUsed}</div></td>
-                    <td class="px-6 py-4 text-sm text-gray-900" data-label="ملاحظات"><div class="max-w-xs truncate" title="${record.notes}">${record.notes}</div></td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td>
-                    ${actionsHtml}`;
-            });
-        }
-
-        function populateMaintenanceDropdowns() {
-            const workLocationSelect = document.getElementById('maintenance-workLocation');
-            const workPartSelect = document.getElementById('maintenance-workPart');
-            const machineNameSelect = document.getElementById('maintenance-machineName');
-            const machineCodeInput = document.getElementById('maintenance-machineCode');
-            const dataEntryUserInput = document.getElementById('maintenance-dataEntryUser');
-
-            dataEntryUserInput.value = window.loggedInUser || '';
-
-            workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
-            machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
-            machineCodeInput.value = '';
-
-            workPartSelect.disabled = true;
-            machineNameSelect.disabled = true;
-            machineCodeInput.disabled = true;
-
-            workLocationSelect.innerHTML = '<option value="">اختر موقع العمل</option>';
-            [...new Set(window.machines.map(m => m.workLocation))].forEach(location => {
-                workLocationSelect.innerHTML += `<option value="${location}">${location}</option>`;
-            });
-            workLocationSelect.disabled = false;
-            
-            workLocationSelect.onchange = () => {
-                const selectedLocation = workLocationSelect.value;
-                workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
-                machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
-                machineCodeInput.value = '';
-                workPartSelect.disabled = !selectedLocation;
-                machineNameSelect.disabled = true;
-                if (selectedLocation) {
-                    [...new Set(window.machines.filter(m => m.workLocation === selectedLocation).map(m => m.workPart))].forEach(part => {
-                        workPartSelect.innerHTML += `<option value="${part}">${part}</option>`;
-                    });
-                }
-            };
-
-            workPartSelect.onchange = () => {
-                const selectedLocation = workLocationSelect.value;
-                const selectedPart = workPartSelect.value;
-                machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
-                machineCodeInput.value = '';
-                machineNameSelect.disabled = !selectedPart;
-                if (selectedLocation && selectedPart) {
-                    const filteredMachinesByPart = window.machines.filter(m => m.workLocation === selectedLocation && m.workPart === selectedPart);
-                    [...new Set(filteredMachinesByPart.map(m => m.machineName))].forEach(name => {
-                        machineNameSelect.innerHTML += `<option value="${name}">${name}</option>`;
-                    });
-                }
-            };
-
-            machineNameSelect.onchange = () => {
-                const selectedLocation = workLocationSelect.value;
-                const selectedPart = workPartSelect.value;
-                const selectedMachineName = machineNameSelect.value;
-                machineCodeInput.value = '';
-                if (selectedLocation && selectedPart && selectedMachineName) {
-                    const selectedMachine = window.machines.find(m => m.workLocation === selectedLocation && m.workPart === selectedPart && m.machineName === selectedMachineName);
-                    if (selectedMachine) {
-                        machineCodeInput.value = selectedMachine.machineCode;
-                    }
-                }
-            };
-        }
-
-        document.getElementById('add-maintenance-record-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('maintenance-message', 'ليس لديك صلاحية لإضافة سجلات صيانة.', 'error');
-                return;
-            }
-            const newRecord = {
-                date: document.getElementById('maintenance-date').value,
-                workLocation: document.getElementById('maintenance-workLocation').value,
-                workPart: document.getElementById('maintenance-workPart').value,
-                machineName: document.getElementById('maintenance-machineName').value,
-                machineCode: document.getElementById('maintenance-machineCode').value,
-                maintenanceDepartment: document.getElementById('maintenance-department').value,
-                performedWork: document.getElementById('maintenance-performedWork').value.trim(),
-                sparePartsUsed: document.getElementById('maintenance-sparePartsUsed').value.trim(),
-                notes: document.getElementById('maintenance-notes').value.trim(),
-                dataEntryUser: window.loggedInUser
-            };
-            if (!newRecord.date || !newRecord.workLocation || !newRecord.workPart || !newRecord.machineName || !newRecord.performedWork || !newRecord.maintenanceDepartment) {
-                showMessage('maintenance-message', 'الرجاء ملء جميع الحقول الإلزامية.', 'error');
-                return;
-            }
-
-            const { error } = await window.supabase.from('maintenanceRecords').insert([newRecord]);
-            if (error) {
-                console.error("Error adding maintenance record:", error);
-                showMessage('maintenance-message', `فشل إضافة سجل الصيانة: ${error.message}`, 'error');
-            } else {
-                document.getElementById('add-maintenance-record-form').reset();
-                populateMaintenanceDropdowns();
-                showMessage('maintenance-message', 'تمت إضافة سجل الصيانة بنجاح!', 'success');
-                await fetchMaintenanceRecords(); // Re-fetch and re-render the table
-            }
-        });
-
-        function editMaintenanceRecord(id) {
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('maintenance-message', 'ليس لديك صلاحية لتعديل سجلات الصيانة.', 'error');
-                return;
-            }
-            const row = document.querySelector(`#maintenance-table-body tr[data-id='${id}']`);
-            const record = window.maintenanceRecords.find(r => r.id == id);
-            if (!row || !record) return;
-
-            const departmentOptions = ['ميكانيك', 'كهرباء', 'تحكم'].map(dep => 
-                `<option value="${dep}" ${record.maintenanceDepartment === dep ? 'selected' : ''}>${dep}</option>`
-            ).join('');
-
-            row.innerHTML = `
-                <td class="px-6 py-4" data-label="التاريخ"><input type="date" value="${record.date}" class="w-full p-1 border rounded" id="edit-maintenance-date-${id}"></td>
-                <td class="px-6 py-4" data-label="موقع العمل"><input type="text" value="${record.workLocation}" class="w-full p-1 border rounded" id="edit-maintenance-workLocation-${id}"></td>
-                <td class="px-6 py-4" data-label="جزء العمل"><input type="text" value="${record.workPart}" class="w-full p-1 border rounded" id="edit-maintenance-workPart-${id}"></td>
-                <td class="px-6 py-4" data-label="الآلة"><input type="text" value="${record.machineName}" class="w-full p-1 border rounded" id="edit-maintenance-machineName-${id}"></td>
-                <td class="px-6 py-4" data-label="كود الآلة"><input type="text" value="${record.machineCode}" class="w-full p-1 border rounded" id="edit-maintenance-machineCode-${id}"></td>
-                <td class="px-6 py-4" data-label="قسم الصيانة"><select class="w-full p-1 border rounded" id="edit-maintenance-department-${id}">${departmentOptions}</select></td>
-                <td class="px-6 py-4" data-label="العمل المنفذ"><textarea class="w-full p-1 border rounded" id="edit-maintenance-performedWork-${id}">${record.performedWork}</textarea></td>
-                <td class="px-6 py-4" data-label="قطع الغيار"><textarea class="w-full p-1 border rounded" id="edit-maintenance-sparePartsUsed-${id}">${record.sparePartsUsed}</textarea></td>
-                <td class="px-6 py-4" data-label="ملاحظات"><textarea class="w-full p-1 border rounded" id="edit-maintenance-notes-${id}">${record.notes}</textarea></td>
-                <td class="px-6 py-4" data-label="مدخل البيانات"><input type="text" value="${record.dataEntryUser || ''}" class="w-full p-1 border rounded bg-gray-100" id="edit-maintenance-dataEntryUser-${id}" readonly></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
-                    <button onclick="saveMaintenanceRecord('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                    <button onclick="renderMaintenanceTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
-                </td>`;
-        }
-        
-        async function saveMaintenanceRecord(id) {
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('maintenance-message', 'ليس لديك صلاحية لحفظ تعديلات سجلات الصيانة.', 'error');
-                return;
-            }
-            const updatedRecord = {
-                date: document.getElementById(`edit-maintenance-date-${id}`).value,
-                workLocation: document.getElementById(`edit-maintenance-workLocation-${id}`).value.trim(),
-                workPart: document.getElementById(`edit-maintenance-workPart-${id}`).value.trim(),
-                machineName: document.getElementById(`edit-maintenance-machineName-${id}`).value.trim(),
-                machineCode: document.getElementById(`edit-maintenance-machineCode-${id}`).value.trim(),
-                maintenanceDepartment: document.getElementById(`edit-maintenance-department-${id}`).value,
-                performedWork: document.getElementById(`edit-maintenance-performedWork-${id}`).value.trim(),
-                sparePartsUsed: document.getElementById(`edit-maintenance-sparePartsUsed-${id}`).value.trim(),
-                notes: document.getElementById(`edit-maintenance-notes-${id}`).value.trim(),
-                dataEntryUser: document.getElementById(`edit-maintenance-dataEntryUser-${id}`).value
-            };
-            if (!updatedRecord.date || !updatedRecord.workLocation || !updatedRecord.workPart || !updatedRecord.machineName || !updatedRecord.performedWork || !updatedRecord.maintenanceDepartment) {
-                showMessage('maintenance-message', 'الرجاء ملء الحقول الإلزامية.', 'error');
-                return;
-            }
-            const { error } = await window.supabase.from('maintenanceRecords').update(updatedRecord).eq('id', id);
-            if (error) {
-                console.error("Error updating maintenance record:", error);
-                showMessage('maintenance-message', `فشل تحديث سجل الصيانة: ${error.message}`, 'error');
-            } else {
-                showMessage('maintenance-message', 'تم تحديث سجل الصيانة بنجاح!', 'success');
-                await fetchMaintenanceRecords(); // Re-fetch and re-render the table
-            }
-        }
-
-        function deleteMaintenanceRecord(id) {
-            if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'normal_admin') {
-                showMessage('maintenance-message', 'ليس لديك صلاحية لحذف سجلات الصيانة.', 'error');
-                return;
-            }
-            showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف سجل الصيانة هذا؟', [
-                { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    const { error } = await window.supabase.from('maintenanceRecords').delete().eq('id', id);
-                    if (error) {
-                        console.error("Error deleting maintenance record:", error);
-                        showMessage('maintenance-message', `فشل حذف السجل الصيانة: ${error.message}`, 'error');
-                    } else {
-                        showMessage('maintenance-message', 'تم حذف سجل الصيانة بنجاح!', 'success');
-                        await fetchMaintenanceRecords(); // Re-fetch and re-render the table
-                    }
-                }},
-                { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
-            ]);
-        }
-
-        document.getElementById('search-maintenance').addEventListener('input', function(event) {
-            const searchTerm = event.target.value.toLowerCase();
-            const filteredRecords = window.maintenanceRecords.filter(record => 
-                Object.values(record).some(val => val && val.toString().toLowerCase().includes(searchTerm))
-            );
-            renderMaintenanceTable(filteredRecords);
-        });
-        
-        // --- Excel Export Functions ---
-        
-        function exportMachinesToExcel() {
-            if (window.machines.length === 0) {
-                showModal('لا توجد بيانات', 'لا توجد آلات لتصديرها.', [{ text: 'موافق' }]);
-                return;
-            }
-            const dataToExport = window.machines.map(m => ({
-                'موقع العمل': m.workLocation,
-                'جزء العمل': m.workPart,
-                'اسم الآلة': m.machineName,
-                'كود الآلة': m.machineCode
-            }));
-            const ws = XLSX.utils.json_to_sheet(dataToExport);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "سجل الآلات");
-            XLSX.writeFile(wb, "سجل_الآلات.xlsx");
-        }
-
-        function getFilteredMaintenanceRecordsForExport() {
-            let recordsToFilter = [...window.maintenanceRecords];
-            const searchTerm = document.getElementById('search-maintenance').value.toLowerCase();
-            if (searchTerm) {
-                recordsToFilter = recordsToFilter.filter(record => 
-                    Object.values(record).some(val => val && val.toString().toLowerCase().includes(searchTerm))
-                );
-            }
-
-            const startDate = document.getElementById('export-start-date').value;
-            const endDate = document.getElementById('export-end-date').value;
-
-            if (!startDate && !endDate) return recordsToFilter;
-
-            return recordsToFilter.filter(record => {
-                const recordDate = new Date(record.date);
-                const start = startDate ? new Date(startDate) : null;
-                const end = endDate ? new Date(endDate) : null;
-                if(start) start.setHours(0,0,0,0);
-                if(end) end.setHours(23,59,59,999);
-                if (start && end) return recordDate >= start && recordDate <= end;
-                if (start) return recordDate >= start;
-                if (end) return recordDate <= end;
-                return false;
-            });
-        }
-
-        function exportMaintenanceToExcel() {
-            const recordsToExport = getFilteredMaintenanceRecordsForExport();
-            if (recordsToExport.length === 0) {
-                showModal('لا توجد بيانات', 'لا توجد سجلات صيانة لتصديرها في الفترة المحددة أو بناءً على البحث الحالي.', [{ text: 'موافق' }]);
-                return;
-            }
-             const dataToExport = recordsToExport.map(r => ({
-                'التاريخ': r.date, 
-                'موقع العمل': r.workLocation, 
-                'جزء العمل': r.workPart, 
-                'الآلة': r.machineName, 
-                'كود الآلة': r.machineCode, 
-                'قسم الصيانة': r.maintenanceDepartment,
-                'العمل المنفذ': r.performedWork, 
-                'قطع الغيار المستخدمة': r.sparePartsUsed, 
-                'ملاحظات': r.notes,
-                'مدخل البيانات': r.dataEntryUser
-            }));
-            const ws = XLSX.utils.json_to_sheet(dataToExport);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "سجل الصيانة");
-            XLSX.writeFile(wb, "سجل_الصيانة.xlsx");
-        }
-
-        // --- Account Management Functions ---
-        function renderUsersTable() {
-            const tableBody = document.getElementById('users-table-body');
-            tableBody.innerHTML = '';
-            if (window.users.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد حسابات لعرضها.</td></tr>`;
-                return;
-            }
-            window.users.forEach(user => {
-                const row = tableBody.insertRow();
-                row.setAttribute('data-id', user.id);
-                let roleDisplay = user.role === 'admin' ? 'مسؤول' : (user.role === 'normal_admin' ? 'مسؤول عادي' : 'مستخدم');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم المستخدم">${user.username}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الدور">${roleDisplay}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
-                        <button onclick="editUser('${user.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">تعديل</button>
-                        <button onclick="deleteUser('${user.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs">حذف</button>
-                    </td>`;
-            });
-        }
-
-        document.getElementById('add-user-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            if (window.loggedInRole !== 'admin') {
-                showMessage('account-message', 'ليس لديك صلاحية لإضافة مستخدمين.', 'error');
-                return;
-            }
-            const newUsername = document.getElementById('new-username').value.trim();
-            const newPassword = document.getElementById('new-password').value.trim();
-            const newRole = document.getElementById('new-role').value;
-            if (!newUsername || !newPassword) {
-                showMessage('account-message', 'الرجاء ملء جميع الحقول.', 'error'); return;
-            }
-            if (window.users.some(u => u.username === newUsername)) {
-                showMessage('account-message', 'اسم المستخدم موجود بالفعل.', 'error'); return;
-            }
-            
-            const { error } = await window.supabase.from('app_users').insert([{ username: newUsername, password: newPassword, role: newRole }]);
-            if (error) {
-                console.error("Error adding user:", error);
-                showMessage('account-message', `فشل إضافة المستخدم: ${error.message}`, 'error');
-            } else {
-                document.getElementById('add-user-form').reset();
-                showMessage('account-message', 'تمت إضافة المستخدم بنجاح!', 'success');
-                await fetchUsers(); // Re-fetch and re-render the table
-            }
-        });
-
-        function editUser(id) {
-            const row = document.querySelector(`#users-table-body tr[data-id='${id}']`);
-            const user = window.users.find(u => u.id == id);
-            if (!row || !user) return;
-
-            row.innerHTML = `
-                <td data-label="اسم المستخدم"><input type="text" value="${user.username}" class="w-full p-1 border rounded" id="edit-username-${id}"></td>
-                <td data-label="الدور">
-                    <select class="w-full p-1 border rounded" id="edit-role-${id}">
-                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>مستخدم</option>
-                        <option value="normal_admin" ${user.role === 'normal_admin' ? 'selected' : ''}>مسؤول عادي</option>
-                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>مسؤول</option>
-                    </select>
-                </td>
-                <td data-label="الإجراءات">
-                    <input type="password" placeholder="اترك فارغاً لعدم التغيير" class="w-full p-1 border rounded mb-2" id="edit-password-${id}">
-                    <button onclick="saveUser('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0">حفظ</button>
-                    <button onclick="renderUsersTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs">إلغاء</button>
-                </td>`;
-        }
-
-        async function saveUser(id) {
-            const updatedUsername = document.getElementById(`edit-username-${id}`).value.trim();
-            const updatedRole = document.getElementById(`edit-role-${id}`).value;
-            const updatedPassword = document.getElementById(`edit-password-${id}`).value.trim();
-
-            if (!updatedUsername) {
-                showMessage('account-message', 'الرجاء ملء اسم المستخدم.', 'error'); return;
-            }
-            if (window.users.some(u => u.username === updatedUsername && u.id != id)) {
-                showMessage('account-message', 'اسم المستخدم موجود بالفعل لمستخدم آخر.', 'error'); return;
-            }
-
-            const updateData = { username: updatedUsername, role: updatedRole };
-            if (updatedPassword) {
-                updateData.password = updatedPassword; // Again, hash in a real app
-            }
-            
-            const { error } = await window.supabase.from('app_users').update(updateData).eq('id', id);
-            if (error) {
-                console.error("Error updating user:", error);
-                showMessage('account-message', `فشل تحديث المستخدم: ${error.message}`, 'error');
-            } else {
-                showMessage('account-message', 'تم تحديث المستخدم بنجاح!', 'success');
-                await fetchUsers(); // Re-fetch and re-render the table
-            }
-        }
-
-        function deleteUser(id) {
-            if (window.loggedInRole !== 'admin') {
-                showMessage('account-message', 'ليس لديك صلاحية لحذف المستخدمين.', 'error');
-                return;
-            }
-            const userToDelete = window.users.find(u => u.id == id);
-            if (userToDelete && userToDelete.username === window.loggedInUser) {
-                showModal('خطأ', 'لا يمكنك حذف حسابك الحالي.', [{ text: 'موافق' }]); return;
-            }
-            
-            showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف هذا المستخدم؟', [
-                { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
-                    const { error } = await window.supabase.from('app_users').delete().eq('id', id);
-                    if (error) {
-                        console.error("Error deleting user:", error);
-                        showMessage('account-message', `فشل حذف المستخدم: ${error.message}`, 'error');
-                    } else {
-                        showMessage('account-message', 'تم حذف المستخدم بنجاح!', 'success');
-                        await fetchUsers(); // Re-fetch and re-render the table
-                    }
-                }},
-                { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
-            ]);
-        }
-
-        // --- New Function for Change Password Modal ---
-        function showChangePasswordModal() {
-            document.getElementById('change-password-modal').classList.remove('hidden');
-            // Clear form fields when opening
-            document.getElementById('change-password-form').reset();
-        }
-
-        // --- Event Listener for Change Password Form Submission ---
-        document.getElementById('change-password-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            
-            const currentPasswordInput = document.getElementById('current-password').value;
-            const newPasswordInput = document.getElementById('new-user-password').value;
-            const confirmNewPasswordInput = document.getElementById('confirm-new-user-password').value;
-
-            // Basic validation
-            if (!currentPasswordInput || !newPasswordInput || !confirmNewPasswordInput) {
-                showModal('خطأ', 'الرجاء ملء جميع حقول كلمة المرور.', [{ text: 'موافق' }]);
-                return;
-            }
-
-            if (newPasswordInput !== confirmNewPasswordInput) {
-                showModal('خطأ', 'كلمة المرور الجديدة وتأكيدها غير متطابقين.', [{ text: 'موافق' }]);
-                return;
-            }
-
-            // Find the logged-in user to verify current password
-            const currentUser = window.users.find(u => u.username === window.loggedInUser);
-
-            if (!currentUser) {
-                showModal('خطأ', 'حدث خطأ غير متوقع. المستخدم غير موجود.', [{ text: 'موافق' }]);
-                return;
-            }
-
-            // Verify current password (NOTE: In a real app, passwords should be hashed and compared securely)
-            if (currentUser.password !== currentPasswordInput) {
-                showModal('خطأ', 'كلمة المرور الحالية غير صحيحة.', [{ text: 'موافق' }]);
-                return;
-            }
-
-            // Update password in Supabase
-            const { error } = await window.supabase
-                .from('app_users')
-                .update({ password: newPasswordInput })
-                .eq('id', currentUser.id);
-
-            if (error) {
-                console.error("Error updating password:", error);
-                showModal('خطأ', `فشل تحديث كلمة المرور: ${error.message}`, [{ text: 'موافق', onClick: () => {
-                    // Close the change password modal only after user acknowledges the error
-                    document.getElementById('change-password-modal').classList.add('hidden');
-                }}]);
-            } else {
-                showModal('نجاح', 'تم تحديث كلمة المرور بنجاح!', [{ text: 'موافق', onClick: async () => {
-                    // Close the change password modal and re-fetch users after user acknowledges success
-                    document.getElementById('change-password-modal').classList.add('hidden');
-                    await fetchUsers(); // Re-fetch users to update the local window.users array with the new password
-                }}]);
-            }
-        });
-
-
-        // --- Initial Setup on Page Load ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            const savedUser = sessionStorage.getItem('loggedInUser');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                window.loggedInUser = user.username;
-                window.loggedInRole = user.role;
-                await fetchAllData();
-                setupSupabaseListeners();
-                showSection('dashboard-section');
-            } else {
-                showSection('login-section');
-            }
-        });
-    </script>
+    <!-- Back to Top Button -->
+    <button onclick="scrollToTop()" id="back-to-top-btn" title="العودة للأعلى">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+    <script src="script.js"></script>
 </body>
 </html>

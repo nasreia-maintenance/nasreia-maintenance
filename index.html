@@ -959,6 +959,2473 @@ th:last-child, td:last-child {
     <button onclick="scrollToTop()" id="back-to-top-btn" title="العودة للأعلى">
         <i class="fas fa-arrow-up"></i>
     </button>
-    <script src="script.js"></script>
+    <script>
+        // Main Application Logic (JavaScript)
+// --- Debugging: Confirm script loading ---
+console.log("Script loaded successfully!");
+
+// Global data storage
+window.machines = [];
+window.maintenanceRecords = [];
+window.pendingRepairRequests = []; // New: Global array for pending repair requests
+window.users = []; 
+window.loggedInUser = null; // Stores email
+window.loggedInRole = null; // Stores derived role
+window.currentPendingRequestToExecute = null; // To store the pending request being executed
+
+// Global variables for tracking the ID of the item being edited in modals
+window.editingMachineId = null;
+window.editingMaintenanceRecordId = null;
+window.editingPendingRequestId = null;
+
+/**
+ * Derives a user's role based on their email domain or username prefix.
+ * @param {string} email - The user's email address.
+ * @returns {string} The derived role ('admin', 'maintenance_manager', 'operation_manager', 'user').
+ */
+function deriveRoleFromEmail(email) {
+    const parts = email.split('@');
+    const usernamePart = parts[0] ? parts[0].toLowerCase() : '';
+    const domainPart = parts[1] ? parts[1].toLowerCase() : '';
+    
+    // Check for specific prefixes in the domain part (e.g., admin.example.com)
+    if (domainPart.startsWith('admin.')) { 
+        return 'admin';
+    } else if (domainPart.startsWith('maintenance.')) {
+        return 'maintenance_manager';
+    } else if (domainPart.startsWith('operation.')) {
+        return 'operation_manager';
+    } else {
+        // Also check if the part before @ is the role (e.g., admin@domain.com)
+        if (usernamePart === 'admin') {
+            return 'admin';
+        } else if (usernamePart === 'maintenance') {
+            return 'maintenance_manager';
+        } else if (usernamePart === 'operation') {
+            return 'operation_manager';
+        }
+        return 'user'; // Default to user if no specific role prefix found
+    }
+}
+
+// --- Utility Functions ---
+
+/**
+ * Shows the global loading overlay.
+ */
+function showLoading() {
+    document.getElementById('loading-overlay').classList.remove('hidden');
+}
+
+/**
+ * Hides the global loading overlay.
+ */
+function hideLoading() {
+    document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+/**
+ * Displays a custom modal with a title, message, and customizable buttons.
+ * @param {string} title - The title of the modal.
+ * @param {string} message - The message content of the modal.
+ * @param {Array<Object>} buttons - An array of button objects. Each object should have 'text' (string) and optionally 'className' (string) and 'onClick' (function).
+ */
+function showModal(title, message, buttons) {
+    const modal = document.getElementById('custom-modal');
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-message').textContent = message;
+    const modalButtons = document.getElementById('modal-buttons');
+    modalButtons.innerHTML = ''; // Clear existing buttons
+
+    buttons.forEach(btn => {
+        const buttonElement = document.createElement('button');
+        buttonElement.textContent = btn.text;
+        buttonElement.className = `py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out ${btn.className || 'bg-blue-600 hover:bg-blue-700 text-white'}`;
+        buttonElement.onclick = () => {
+            modal.classList.add('hidden');
+            if (btn.onClick) btn.onClick();
+        };
+        modalButtons.appendChild(buttonElement);
+    });
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Shows a specific section of the application and hides others.
+ * Adjusts visibility of forms and buttons based on user role.
+ * @param {string} sectionId - The ID of the section to show.
+ */
+function showSection(sectionId) {
+    // Hide all main sections
+    document.getElementById('login-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.add('hidden');
+    document.getElementById('machine-log-section').classList.add('hidden');
+    document.getElementById('maintenance-log-section').classList.add('hidden');
+    document.getElementById('pending-requests-section').classList.add('hidden'); // New: Hide pending requests section
+    document.getElementById('account-management-section').classList.add('hidden');
+
+    const sectionToShow = document.getElementById(sectionId);
+    if(sectionToShow) {
+        sectionToShow.classList.remove('hidden');
+        if(['login-section', 'dashboard-section'].includes(sectionId)){
+            sectionToShow.classList.add('flex');
+        }
+    }
+
+    // Permissions for Machine Log Section
+    if (sectionId === 'machine-log-section') {
+        renderMachineTable();
+        const addMachineBtn = document.getElementById('add-machine-btn'); // Changed to button
+        // Only admin, maintenance_manager, and operation_manager can add machines
+        if (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager' || window.loggedInRole === 'operation_manager') {
+            addMachineBtn.classList.remove('hidden');
+        } else {
+            addMachineBtn.classList.add('hidden');
+        }
+    }
+
+    // Permissions for Maintenance Log Section
+    if (sectionId === 'maintenance-log-section') {
+        renderMaintenanceTable();
+        populateMaintenanceFilterDropdowns(); // Populate filter dropdowns
+        const addMaintenanceButtons = document.getElementById('add-maintenance-buttons');
+        // Only admin and maintenance_manager can add maintenance records
+        if (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager') {
+            addMaintenanceButtons.classList.remove('hidden');
+        } else {
+            addMaintenanceButtons.classList.add('hidden');
+        }
+    }
+
+    // New: Permissions for Pending Repair Requests Section
+    if (sectionId === 'pending-requests-section') {
+        renderPendingRequestsTable();
+        populatePendingRequestFilterDropdowns(); // Populate filter dropdowns
+        const addPendingRequestButtons = document.getElementById('add-pending-request-buttons');
+        // Only admin and operation_manager can add pending requests
+        if (window.loggedInRole === 'admin' || window.loggedInRole === 'operation_manager') {
+            addPendingRequestButtons.classList.remove('hidden');
+        } else {
+            addPendingRequestButtons.classList.add('hidden');
+        }
+    }
+
+    // Permissions for Account Management Section
+    if (sectionId === 'account-management-section') {
+        if (window.loggedInRole !== 'admin') {
+            showModal('خطأ في الصلاحيات', 'ليس لديك صلاحيات للوصول إلى إدارة الحسابات.', [{ text: 'موافق', onClick: () => showSection('dashboard-section') }]);
+            return;
+        }
+        renderUsersTable();
+    }
+
+    // Dashboard specific updates
+    if (sectionId === 'dashboard-section') {
+        const roleText = {
+            'admin': 'مسؤول',
+            'maintenance_manager': 'مسؤول صيانة',
+            'operation_manager': 'مسؤول تشغيل',
+            'user': 'مستخدم'
+        }[window.loggedInRole] || '';
+        document.getElementById('logged-in-user-info').textContent = `مرحباً، ${window.loggedInUser} (${roleText})`;
+        
+        // Account management card visible only to admin
+        document.getElementById('account-management-card').style.display = window.loggedInRole === 'admin' ? 'flex' : 'none';
+        
+        // Change password button visible to all logged-in users
+        const changePasswordButton = document.getElementById('change-password-button');
+        if (window.loggedInUser) { // If any user is logged in
+            changePasswordButton.classList.remove('hidden');
+        } else {
+            changePasswordButton.classList.add('hidden');
+        }
+
+        // Control visibility of export/import buttons based on admin role
+        const exportButton = document.getElementById('export-all-data-button');
+        const importButton = document.getElementById('import-all-data-button');
+        if (window.loggedInRole === 'admin') {
+            exportButton.classList.remove('hidden');
+            importButton.classList.remove('hidden');
+        } else {
+            exportButton.classList.add('hidden');
+            importButton.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Displays a temporary message in a designated area.
+ * @param {string} elementId - The ID of the div element to display the message in.
+ * @param {string} text - The message text.
+ * @param {string} type - The type of message ('info', 'success', 'error'). Defaults to 'info'.
+ */
+function showMessage(elementId, text, type = 'info') {
+    const messageDiv = document.getElementById(elementId);
+    const messageText = document.getElementById(elementId + '-text');
+    messageText.textContent = text;
+    messageDiv.className = 'p-4 mb-4 text-sm rounded-lg'; // Reset classes
+    switch(type) {
+        case 'success':
+            messageDiv.classList.add('bg-green-100', 'text-green-800');
+            break;
+        case 'error':
+             messageDiv.classList.add('bg-red-100', 'text-red-800');
+            break;
+        default:
+             messageDiv.classList.add('bg-blue-100', 'text-blue-800');
+    }
+    messageDiv.classList.remove('hidden');
+    setTimeout(() => hideMessage(elementId), 5000);
+}
+
+/**
+ * Hides a message displayed by showMessage.
+ * @param {string} elementId - The ID of the div element containing the message.
+ */
+function hideMessage(elementId) {
+    document.getElementById(elementId).classList.add('hidden');
+}
+
+/**
+ * Opens the maintenance form modal, optionally pre-filling it with machine data.
+ * @param {Object} [machine=null] - The machine object to pre-fill the form with.
+ */
+function openMaintenanceFormModal(machine = null) {
+    document.getElementById('maintenance-form-modal').classList.remove('hidden');
+    document.getElementById('maintenance-form-modal-title').textContent = machine ? 'إضافة سجل صيانة (للآلة المحددة)' : 'إضافة سجل صيانة جديد';
+    populateMaintenanceDropdowns(machine);
+}
+
+// --- Authentication Functions ---
+document.getElementById('login-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    showLoading(); // Show loading indicator
+    const email = document.getElementById('username').value; // Now it's email
+    const password = document.getElementById('password').value;
+
+    try {
+        const { data, error } = await window.supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
+
+        if (error) {
+            console.error("Error during login:", error);
+            showModal('خطأ في تسجيل الدخول', `فشل تسجيل الدخول: ${error.message}`, [{ text: 'موافق' }]);
+        } else if (data.user) {
+            // User successfully logged in via Supabase Auth
+            window.loggedInUser = data.user.email;
+            window.loggedInRole = deriveRoleFromEmail(data.user.email); // Derive role from email
+
+            // Fetch user profile to get the stored role (if it exists)
+            const { data: userProfile, error: profileError } = await window.supabase
+                .from('user_profiles')
+                .select('role')
+                .eq('id', data.user.id)
+                .single();
+
+            if (profileError || !userProfile) {
+                // If profile doesn't exist or error, create it with derived role
+                // This handles cases where user signs up directly via Supabase Auth dashboard
+                console.warn("User profile not found or error fetching, creating/using derived role:", profileError);
+                const { error: insertProfileError } = await window.supabase.from('user_profiles').insert({
+                    id: data.user.id,
+                    username: data.user.email,
+                    role: window.loggedInRole
+                });
+                if (insertProfileError) {
+                    console.error("Error inserting user profile:", insertProfileError);
+                }
+            } else {
+                // If profile exists, use the role from the profile (allows for custom roles later)
+                window.loggedInRole = userProfile.role;
+            }
+
+            sessionStorage.setItem('loggedInUser', JSON.stringify({ username: window.loggedInUser, role: window.loggedInRole }));
+            await fetchAllData(); // Fetch all data after successful login
+            showSection('dashboard-section');
+        } else {
+            // This case should ideally not be reached if error is handled
+            showModal('خطأ في تسجيل الدخول', 'اسم المستخدم أو كلمة المرور غير صحيحة.', [{ text: 'موافق' }]);
+        }
+    } catch (e) {
+        console.error("Unexpected error during login form submission:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء تسجيل الدخول: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading(); // Ensure loading indicator is hidden
+    }
+});
+
+/**
+ * Logs out the current user after confirmation.
+ */
+function logout() {
+    showModal('تسجيل الخروج', 'هل أنت متأكد أنك تريد تسجيل الخروج؟', [
+        { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
+            showLoading(); // Show loading indicator
+            try {
+                const { error } = await window.supabase.auth.signOut();
+                if (error) {
+                    console.error("Error during logout:", error);
+                    showModal('خطأ في تسجيل الخروج', `فشل تسجيل الخروج: ${error.message}`, [{ text: 'موافق' }]);
+                } else {
+                    window.loggedInUser = null;
+                    window.loggedInRole = null;
+                    sessionStorage.removeItem('loggedInUser');
+                    window.location.reload(); // Reload to reset application state
+                }
+            } catch (e) {
+                console.error("Unexpected error during logout:", e);
+                showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء تسجيل الخروج: ${e.message}`, [{ text: 'موافق' }]);
+            } finally {
+                hideLoading(); // Hide loading indicator
+            }
+        }},
+        { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
+    ]);
+}
+
+// --- Data Fetching Functions ---
+/**
+ * Fetches all machine records from Supabase and updates the global machines array.
+ * Sorts machines by workLocation.
+ */
+async function fetchMachines() {
+    showLoading();
+    try {
+        const { data, error } = await window.supabase.from('machines').select('*');
+        if (error) {
+            console.error('Error fetching machines:', error);
+            showModal('خطأ في جلب البيانات', `فشل جلب بيانات الآلات: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            window.machines = data.sort((a, b) => a.workLocation.localeCompare(b.workLocation));
+            renderMachineTable();
+        }
+    } catch (e) {
+        console.error("Unexpected error fetching machines:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء جلب الآلات: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * Fetches all maintenance records from Supabase and updates the global maintenanceRecords array.
+ * Sorts records by date in descending order.
+ */
+async function fetchMaintenanceRecords() {
+    showLoading();
+    try {
+        const { data, error } = await window.supabase.from('maintenanceRecords').select('*');
+        if (error) {
+            console.error('Error fetching maintenance records:', error);
+            showModal('خطأ في جلب البيانات', `فشل جلب سجلات الصيانة: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            window.maintenanceRecords = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+            renderMaintenanceTable();
+            populateMaintenanceFilterDropdowns(); // Update filter dropdowns after fetching
+        }
+    } catch (e) {
+        console.error("Unexpected error fetching maintenance records:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء جلب سجلات الصيانة: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * New: Fetches all pending repair requests from Supabase and updates the global pendingRepairRequests array.
+ * Sorts records by date and time in descending order.
+ */
+async function fetchPendingRepairRequests() {
+    showLoading();
+    try {
+        const { data, error } = await window.supabase.from('pendingRepairRequests').select('*');
+        if (error) {
+            console.error('Error fetching pending repair requests:', error);
+            showModal('خطأ في جلب البيانات', `فشل جلب طلبات الإصلاح المعلقة: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            window.pendingRepairRequests = data.sort((a, b) => {
+                const dateA = new Date(`${a.date}T${a.time}`);
+                const dateB = new Date(`${b.date}T${b.time}`);
+                return dateB - dateA; // Sort descending
+            });
+            renderPendingRequestsTable();
+            populatePendingRequestFilterDropdowns(); // Update filter dropdowns after fetching
+        }
+    } catch (e) {
+        console.error("Unexpected error fetching pending repair requests:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء جلب طلبات الإصلاح المعلقة: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * Fetches all user profiles from Supabase and updates the global users array.
+ * Now fetches from 'user_profiles' table.
+ */
+async function fetchUsers() {
+    showLoading();
+    try {
+        const { data, error } = await window.supabase.from('user_profiles').select('*');
+        if (error) {
+            console.error('Error fetching user profiles:', error);
+            showModal('خطأ في جلب البيانات', `فشل جلب بيانات المستخدمين: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            window.users = data;
+            renderUsersTable();
+        }
+    } catch (e) {
+        console.error("Unexpected error fetching user profiles:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء جلب المستخدمين: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * Fetches all necessary data (machines, maintenance records, pending requests, users) concurrently.
+ */
+async function fetchAllData() {
+    showLoading();
+    try {
+        await Promise.all([fetchMachines(), fetchMaintenanceRecords(), fetchPendingRepairRequests(), fetchUsers()]);
+    } catch (e) {
+        console.error("Unexpected error fetching all data:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء جلب جميع البيانات: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * Sets up real-time listeners for changes in Supabase tables.
+ * Re-fetches and re-renders data upon changes.
+ */
+function setupSupabaseListeners() {
+    // Ensure Supabase client is initialized before setting up listeners
+    if (!window.supabase) {
+        console.error("Supabase client not initialized. Cannot set up listeners.");
+        return;
+    }
+
+    // Unsubscribe from previous channels to prevent duplicate listeners if called multiple times
+    window.supabase.removeAllChannels();
+
+    window.supabase.channel('public:machines')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'machines' }, payload => {
+            console.log('Machine change detected:', payload);
+            fetchMachines(); // Re-fetch machines to update the table
+        })
+        .subscribe();
+    
+    window.supabase.channel('public:maintenanceRecords')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenanceRecords' }, payload => {
+            console.log('Maintenance record change detected:', payload);
+            fetchMaintenanceRecords(); // Re-fetch maintenance records to update the table
+        })
+        .subscribe();
+
+    // New: Listener for pendingRepairRequests table
+    window.supabase.channel('public:pendingRepairRequests')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pendingRepairRequests' }, payload => {
+            console.log('Pending repair request change detected:', payload);
+            fetchPendingRepairRequests(); // Re-fetch pending requests to update the table
+        })
+        .subscribe();
+
+    // Listen for changes in user_profiles table
+    window.supabase.channel('public:user_profiles')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, payload => {
+            console.log('User profile change detected:', payload);
+            fetchUsers(); // Re-fetch user profiles to update the table
+        })
+        .subscribe();
+
+    // Listen for Supabase Auth state changes (e.g., login/logout)
+    window.supabase.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state change:', event, session);
+        if (event === 'SIGNED_IN') {
+            if (session && session.user) {
+                window.loggedInUser = session.user.email;
+                window.loggedInRole = deriveRoleFromEmail(session.user.email);
+
+                // Try to fetch role from user_profiles table
+                window.supabase.from('user_profiles')
+                    .select('role')
+                    .eq('id', session.user.id)
+                    .single()
+                    .then(({ data, error }) => {
+                        if (data && data.role) {
+                            window.loggedInRole = data.role;
+                        }
+                        sessionStorage.setItem('loggedInUser', JSON.stringify({ username: window.loggedInUser, role: window.loggedInRole }));
+                        fetchAllData();
+                        showSection('dashboard-section');
+                    })
+                    .catch(error => console.error("Error fetching user profile on auth change:", error));
+            }
+        } else if (event === 'SIGNED_OUT') {
+            window.loggedInUser = null;
+            window.loggedInRole = null;
+            sessionStorage.removeItem('loggedInUser');
+            showSection('login-section');
+        }
+    });
+}
+
+// --- Export All Data ---
+/**
+ * Exports all data (user profiles, machines, maintenance records, pending repair requests) from Supabase to a JSON file.
+ */
+async function exportAllData() {
+    if (window.loggedInRole !== 'admin') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لتصدير البيانات.', [{ text: 'موافق' }]);
+        return;
+    }
+    showLoading();
+    try {
+        const { data: machines, error: machinesError } = await window.supabase.from('machines').select('*');
+        if (machinesError) throw machinesError;
+
+        const { data: maintenanceRecords, error: maintenanceError } = await window.supabase.from('maintenanceRecords').select('*');
+        if (maintenanceError) throw maintenanceError;
+
+        const { data: userProfiles, error: userProfilesError } = await window.supabase.from('user_profiles').select('*');
+        if (userProfilesError) throw userProfilesError;
+
+        const { data: pendingRepairRequests, error: pendingError } = await window.supabase.from('pendingRepairRequests').select('*');
+        if (pendingError) throw pendingError;
+
+
+        const allData = { userProfiles, machines, maintenanceRecords, pendingRepairRequests };
+        const dataStr = JSON.stringify(allData, null, 2);
+        const dataBlob = new Blob([dataStr], {type: "application/json"});
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = "supabase_backup.json";
+        link.click();
+        URL.revokeObjectURL(link.href);
+        showModal('نجاح', 'تم تصدير جميع البيانات من Supabase بنجاح!', [{text: 'حسنًا'}]);
+    } catch (error) {
+        console.error("Error exporting all data:", error);
+        showModal('خطأ في التصدير', `فشل تصدير الملف من Supabase: ${error.message}`, [{text: 'موافق'}]);
+    } finally {
+        hideLoading();
+    }
+}
+
+// --- Import All Data ---
+document.getElementById('import-file-input').addEventListener('change', importAllData);
+
+async function importAllData(event) {
+    if (window.loggedInRole !== 'admin') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لاستيراد البيانات.', [{ text: 'موافق' }]);
+        // Clear the file input in case user tries to bypass
+        event.target.value = '';
+        return;
+    }
+
+    const file = event.target.files[0];
+    if (!file) {
+        return; // No file selected
+    }
+
+    if (file.type !== 'application/json') {
+        showModal('خطأ في الملف', 'الرجاء تحديد ملف JSON صالح.', [{ text: 'موافق' }]);
+        event.target.value = ''; // Clear the file input
+        return;
+    }
+
+    showModal('تأكيد الاستيراد', 'هل أنت متأكد أنك تريد استيراد البيانات؟ قد يؤدي هذا إلى تحديث أو إضافة سجلات موجودة.', [
+        { text: 'نعم، استيراد', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
+            showLoading();
+            try {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+
+                        const { userProfiles, machines, maintenanceRecords, pendingRepairRequests } = importedData;
+
+                        // Import User Profiles
+                        if (userProfiles && userProfiles.length > 0) {
+                            const { error: usersError } = await window.supabase.from('user_profiles').upsert(userProfiles, { onConflict: 'id' });
+                            if (usersError) throw usersError;
+                        }
+
+                        // Import Machines
+                        if (machines && machines.length > 0) {
+                            const { error: machinesError } = await window.supabase.from('machines').upsert(machines, { onConflict: 'id' });
+                            if (machinesError) throw machinesError;
+                        }
+
+                        // Import Maintenance Records
+                        if (maintenanceRecords && maintenanceRecords.length > 0) {
+                            const { error: recordsError } = await window.supabase.from('maintenanceRecords').upsert(maintenanceRecords, { onConflict: 'id' });
+                            if (recordsError) throw recordsError;
+                        }
+
+                        // New: Import Pending Repair Requests
+                        if (pendingRepairRequests && pendingRepairRequests.length > 0) {
+                            const { error: pendingRecordsError } = await window.supabase.from('pendingRepairRequests').upsert(pendingRepairRequests, { onConflict: 'id' });
+                            if (pendingRecordsError) throw pendingRecordsError;
+                        }
+
+                        showModal('نجاح', 'تم استيراد البيانات بنجاح!', [{ text: 'موافق', onClick: async () => {
+                            await fetchAllData(); // Re-fetch all data to update UI
+                            hideLoading();
+                        }}]);
+                    } catch (parseError) {
+                        console.error("Error parsing imported JSON:", parseError);
+                        showModal('خطأ في تحليل الملف', `فشل تحليل ملف JSON: ${parseError.message}`, [{ text: 'موافق' }]);
+                        hideLoading();
+                    }
+                };
+                reader.onerror = (readError) => {
+                    console.error("Error reading file:", readError);
+                    showModal('خطأ في قراءة الملف', `فشل قراءة الملف: ${readError.message}`, [{ text: 'موافق' }]);
+                    hideLoading();
+                };
+                reader.readAsText(file);
+            } catch (error) {
+                console.error("Error importing data:", error);
+                showModal('خطأ في الاستيراد', `فشل استيراد البيانات إلى Supabase: ${error.message}`, [{ text: 'موافق' }]);
+            } finally {
+                hideLoading();
+                event.target.value = ''; // Clear the file input after processing
+            }
+        }},
+        { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white', onClick: () => {
+            event.target.value = ''; // Clear the file input if cancelled
+        }}
+    ]);
+}
+
+
+// --- Machine Log Functions ---
+/**
+ * Renders the machine table with filtered or all machines.
+ * Adjusts action button visibility based on user role.
+ * @param {Array<Object>} [filteredMachines=window.machines] - The array of machines to display.
+ */
+function renderMachineTable(filteredMachines = window.machines) {
+    const tableBody = document.getElementById('machine-table-body');
+    tableBody.innerHTML = '';
+    const actionsHeader = document.querySelector('.machine-actions-header');
+    
+    // Show/hide actions header based on roles that can manage machines
+    const canManageMachines = (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager' || window.loggedInRole === 'operation_manager');
+    if (canManageMachines) {
+        actionsHeader.classList.remove('hidden');
+    } else {
+        actionsHeader.classList.add('hidden');
+    }
+
+    if (filteredMachines.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد آلات لعرضها.</td></tr>`;
+        return;
+    }
+
+    filteredMachines.forEach(machine => {
+        const row = tableBody.insertRow();
+        row.setAttribute('data-id', machine.id);
+        let actionsHtml = '';
+        if (canManageMachines) { // Admin, Maintenance Manager, Operation Manager can edit/delete machines
+            actionsHtml = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                    <button onclick="openEditMachineModal('${machine.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0" title="تعديل"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteMachine('${machine.id}', '${machine.machineCode}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs" title="حذف"><i class="fas fa-trash-alt"></i></button>
+                </td>`;
+        } else {
+            actionsHtml = `<td class="hidden"></td>`; // Hide actions column for other roles
+        }
+        
+        const referenceHtml = machine.url 
+            ? `<a href="${machine.url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">المرجع</a>`
+            : 'لا يوجد مرجع';
+
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${machine.workLocation}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${machine.workPart}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم الآلة">${machine.machineName}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${machine.machineCode}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="النوع">${machine.type || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الرقم التسلسلي">${machine.serial_number || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="المرجع">${referenceHtml}</td>
+            ${actionsHtml}
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="سجل الصيانة">
+                <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs" title="عرض سجل الصيانة"><i class="fas fa-clipboard-list"></i></button>
+            </td>`;
+    });
+}
+
+/**
+ * Displays the modal for adding a new machine.
+ */
+function showAddMachineModal() {
+    // Only admin, maintenance_manager, and operation_manager can add machines
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager' && window.loggedInRole !== 'operation_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لإضافة آلات.', [{ text: 'موافق' }]);
+        return;
+    }
+    document.getElementById('add-machine-modal').classList.remove('hidden');
+    document.getElementById('add-machine-form-modal').reset(); // Clear form fields
+}
+
+// Event listener for submitting the add machine form in the modal
+document.getElementById('add-machine-form-modal').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    // Permissions check is done in showAddMachineModal, but good to have here too
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager' && window.loggedInRole !== 'operation_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لإضافة آلات.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const newMachine = {
+        workLocation: document.getElementById('modal-machine-workLocation').value.trim(),
+        workPart: document.getElementById('modal-machine-workPart').value.trim(),
+        machineName: document.getElementById('modal-machine-name').value.trim(),
+        machineCode: document.getElementById('modal-machine-code').value.trim(),
+        type: document.getElementById('modal-machine-type').value.trim(),
+        serial_number: document.getElementById('modal-machine-serial').value.trim(),
+        url: document.getElementById('modal-machine-url').value.trim()
+    };
+
+    // Client-side validation
+    if (!newMachine.workLocation || !newMachine.workPart || !newMachine.machineName || !newMachine.machineCode) {
+        showModal('خطأ', 'الرجاء ملء جميع الحقول الإلزامية.', [{ text: 'موافق' }]);
+        return;
+    }
+    if (window.machines.some(m => m.machineCode === newMachine.machineCode)) {
+        showModal('خطأ', 'كود الآلة هذا موجود بالفعل. يرجى استخدام كود فريد.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('machines').insert([newMachine]);
+        if (error) {
+            console.error("Error adding machine:", error);
+            showModal('خطأ', `فشل إضافة الآلة: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تمت إضافة الآلة بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('add-machine-modal').classList.add('hidden'); // Hide modal
+                await fetchMachines(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error adding machine:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء إضافة الآلة: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Opens the modal for editing a machine.
+ * @param {string} id - The ID of the machine to edit.
+ */
+function openEditMachineModal(id) {
+    // Only admin, maintenance_manager, and operation_manager can edit machines
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager' && window.loggedInRole !== 'operation_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لتعديل الآلات.', [{ text: 'موافق' }]);
+        return;
+    }
+    const machine = window.machines.find(m => m.id == id);
+    if (!machine) {
+        showModal('خطأ', 'لم يتم العثور على الآلة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    document.getElementById('edit-machine-modal-title').textContent = 'تعديل بيانات الآلة';
+    document.getElementById('edit-modal-machine-workLocation').value = machine.workLocation;
+    document.getElementById('edit-modal-machine-workPart').value = machine.workPart;
+    document.getElementById('edit-modal-machine-name').value = machine.machineName;
+    document.getElementById('edit-modal-machine-code').value = machine.machineCode;
+    document.getElementById('edit-modal-machine-type').value = machine.type || '';
+    document.getElementById('edit-modal-machine-serial').value = machine.serial_number || '';
+    document.getElementById('edit-modal-machine-url').value = machine.url || '';
+    
+    window.editingMachineId = id; // Store the ID of the machine being edited
+    document.getElementById('edit-machine-modal').classList.remove('hidden');
+}
+
+// Event listener for submitting the edit machine form in the modal
+document.getElementById('edit-machine-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    // Permissions check is done in openEditMachineModal, but good to have here too
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager' && window.loggedInRole !== 'operation_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لحفظ تعديلات الآلات.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const id = window.editingMachineId;
+    const updatedMachine = {
+        workLocation: document.getElementById('edit-modal-machine-workLocation').value.trim(),
+        workPart: document.getElementById('edit-modal-machine-workPart').value.trim(),
+        machineName: document.getElementById('edit-modal-machine-name').value.trim(),
+        machineCode: document.getElementById('edit-modal-machine-code').value.trim(),
+        type: document.getElementById('edit-modal-machine-type').value.trim(),
+        serial_number: document.getElementById('edit-modal-machine-serial').value.trim(),
+        url: document.getElementById('edit-modal-machine-url').value.trim()
+    };
+
+    // Client-side validation
+    if (!updatedMachine.workLocation || !updatedMachine.workPart || !updatedMachine.machineName || !updatedMachine.machineCode) {
+        showModal('خطأ', 'الرجاء ملء جميع الحقول الإلزامية.', [{ text: 'موافق' }]);
+        return;
+    }
+    if (window.machines.some(m => m.id != id && m.machineCode === updatedMachine.machineCode)) {
+        showModal('خطأ', 'كود الآلة موجود بالفعل لآلة أخرى.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('machines').update(updatedMachine).eq('id', id);
+        if (error) {
+            console.error("Error updating machine:", error);
+            showModal('خطأ', `فشل تحديث الآلة: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تم تحديث الآلة بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('edit-machine-modal').classList.add('hidden');
+                await fetchMachines(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error saving machine:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حفظ الآلة: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Deletes a machine record and its associated maintenance records.
+ * Now also deletes associated pending repair requests.
+ * @param {string} id - The ID of the machine to delete.
+ * @param {string} machineCode - The machine code to delete associated records.
+ */
+function deleteMachine(id, machineCode) {
+    // Only admin, maintenance_manager, and operation_manager can delete machines
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager' && window.loggedInRole !== 'operation_manager') {
+        showMessage('machine-message', 'ليس لديك صلاحية لحذف الآلات.', 'error');
+        return;
+    }
+    showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف هذه الآلة؟ سيؤدي هذا إلى حذف سجلات الصيانة وطلبات الإصلاح المعلقة المرتبطة بها أيضًا.', [
+        { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
+            showLoading();
+            try {
+                // First, delete associated maintenance records
+                const { error: deleteMaintenanceError } = await window.supabase
+                    .from('maintenanceRecords')
+                    .delete()
+                    .eq('machineCode', machineCode);
+
+                if (deleteMaintenanceError) {
+                    console.error("Error deleting maintenance records:", deleteMaintenanceError);
+                    showModal('خطأ', `فشل حذف سجلات الصيانة المرتبطة: ${deleteMaintenanceError.message}`, [{ text: 'موافق' }]);
+                    return;
+                }
+
+                // New: Delete associated pending repair requests
+                const { error: deletePendingError } = await window.supabase
+                    .from('pendingRepairRequests')
+                    .delete()
+                    .eq('machineCode', machineCode);
+
+                if (deletePendingError) {
+                    console.error("Error deleting pending repair requests:", deletePendingError);
+                    showModal('خطأ', `فشل حذف طلبات الإصلاح المعلقة المرتبطة: ${deletePendingError.message}`, [{ text: 'موافق' }]);
+                    return;
+                }
+                
+                // Then, delete the machine
+                const { error: deleteMachineError } = await window.supabase
+                    .from('machines')
+                    .delete()
+                    .eq('id', id);
+
+                if (deleteMachineError) {
+                    console.error("Error deleting machine:", deleteMachineError);
+                    showModal('خطأ', `فشل حذف الآلة: ${deleteMachineError.message}`, [{ text: 'موافق' }]);
+                } else {
+                    showModal('نجاح', 'تم حذف الآلة وسجلاتها بنجاح!', [{ text: 'موافق', onClick: async () => {
+                        await fetchMachines(); // Re-fetch and re-render the table
+                        await fetchMaintenanceRecords(); // Also update maintenance records
+                        await fetchPendingRepairRequests(); // Also update pending requests
+                    }}]);
+                }
+            } catch (e) {
+                console.error("Unexpected error deleting machine:", e);
+                showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حذف الآلة: ${e.message}`, [{ text: 'موافق' }]);
+            } finally {
+                hideLoading();
+            }
+        }},
+        { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
+    ]);
+}
+
+document.getElementById('search-machine').addEventListener('input', function(event) {
+    const searchTerm = event.target.value.toLowerCase();
+    const filteredMachines = window.machines.filter(machine => 
+        machine.workLocation.toLowerCase().includes(searchTerm) ||
+        machine.workPart.toLowerCase().includes(searchTerm) ||
+        machine.machineName.toLowerCase().includes(searchTerm) ||
+        machine.machineCode.toLowerCase().includes(searchTerm) ||
+        (machine.type && machine.type.toLowerCase().includes(searchTerm)) ||
+        (machine.serial_number && machine.serial_number.toLowerCase().includes(searchTerm))
+    );
+    renderMachineTable(filteredMachines);
+});
+
+/**
+ * Navigates to the maintenance log section and filters records for a specific machine.
+ * @param {string} machineCode - The machine code to filter maintenance records by.
+ */
+function viewMachineMaintenance(machineCode) {
+    // Reset all filters first
+    resetMaintenanceFilters();
+    // Apply machine code filter
+    document.getElementById('search-maintenance-keyword').value = machineCode;
+    applyMaintenanceFilters();
+    showSection('maintenance-log-section');
+    showMessage('maintenance-message', `عرض سجلات الصيانة للآلة ذات الكود: ${machineCode}`, 'info');
+}
+
+// --- Maintenance Log Functions ---
+
+/**
+ * Populates the filter dropdowns for maintenance records based on available data.
+ */
+function populateMaintenanceFilterDropdowns() {
+    const locationFilter = document.getElementById('filter-maintenance-location');
+    const machineFilter = document.getElementById('filter-maintenance-machine');
+
+    // Store current selections to re-apply after update
+    const currentLocation = locationFilter.value;
+    const currentMachine = machineFilter.value;
+
+    // Clear existing options
+    locationFilter.innerHTML = '<option value="">الكل</option>';
+    machineFilter.innerHTML = '<option value="">الكل</option>';
+
+    // Populate Work Location filter
+    const uniqueLocations = [...new Set(window.maintenanceRecords.map(r => r.workLocation))].sort();
+    uniqueLocations.forEach(loc => {
+        locationFilter.innerHTML += `<option value="${loc}">${loc}</option>`;
+    });
+
+    // Populate Machine Name filter
+    const uniqueMachines = [...new Set(window.maintenanceRecords.map(r => r.machineName))].sort();
+    uniqueMachines.forEach(machine => {
+        machineFilter.innerHTML += `<option value="${machine}">${machine}</option>`;
+    });
+
+    // Re-apply previous selections if they still exist
+    if (uniqueLocations.includes(currentLocation)) {
+        locationFilter.value = currentLocation;
+    }
+    if (uniqueMachines.includes(currentMachine)) {
+        machineFilter.value = currentMachine;
+    }
+}
+
+/**
+ * Applies filters to the maintenance records table based on user input.
+ */
+function applyMaintenanceFilters() {
+    const keyword = document.getElementById('search-maintenance-keyword').value.toLowerCase();
+    const location = document.getElementById('filter-maintenance-location').value;
+    const machine = document.getElementById('filter-maintenance-machine').value;
+    const department = document.getElementById('filter-maintenance-department').value;
+
+    const filteredRecords = window.maintenanceRecords.filter(record => {
+        const matchesKeyword = Object.values(record).some(val => 
+            val && val.toString().toLowerCase().includes(keyword)
+        );
+        const matchesLocation = location ? record.workLocation === location : true;
+        const matchesMachine = machine ? record.machineName === machine : true;
+        const matchesDepartment = department ? record.maintenanceDepartment === department : true;
+
+        return matchesKeyword && matchesLocation && matchesMachine && matchesDepartment;
+    });
+    renderMaintenanceTable(filteredRecords);
+}
+
+/**
+ * Resets all maintenance log filter fields and re-renders the full table.
+ */
+function resetMaintenanceFilters() {
+    document.getElementById('search-maintenance-keyword').value = '';
+    document.getElementById('filter-maintenance-location').value = '';
+    document.getElementById('filter-maintenance-machine').value = '';
+    document.getElementById('filter-maintenance-department').value = '';
+    renderMaintenanceTable(window.maintenanceRecords); // Render all records
+}
+
+
+/**
+ * Renders the maintenance table with filtered or all records.
+ * Adjusts action button visibility based on user role.
+ * @param {Array<Object>} [filteredRecords=window.maintenanceRecords] - The array of maintenance records to display.
+ */
+function renderMaintenanceTable(filteredRecords = window.maintenanceRecords) {
+    const tableBody = document.getElementById('maintenance-table-body');
+    tableBody.innerHTML = '';
+    const actionsHeader = document.querySelector('#maintenance-log-section .maintenance-actions-header');
+    
+    // Only admin and maintenance_manager can manage maintenance records (add/edit/delete)
+    const canManageMaintenance = (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager');
+    if (canManageMaintenance) {
+        actionsHeader.classList.remove('hidden');
+    } else {
+        actionsHeader.classList.add('hidden');
+    }
+
+    if (filteredRecords.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد سجلات صيانة لعرضها.</td></tr>`;
+        return;
+    }
+    filteredRecords.forEach(record => {
+        const row = tableBody.insertRow();
+        row.setAttribute('data-id', record.id);
+        row.classList.add('hover:bg-gray-50');
+        let actionsHtml = '';
+        if (canManageMaintenance) { // Admin, Maintenance Manager can edit/delete maintenance records
+            // Check if the logged-in user is the data entry user OR an admin
+            const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+            const canEditOrDelete = isDataEntryUser || window.loggedInRole === 'admin';
+
+            actionsHtml = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                    <button onclick="openEditMaintenanceRecordModal('${record.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0 ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="تعديل" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteMaintenanceRecord('${record.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="حذف" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>
+                </td>`;
+        } else {
+            actionsHtml = `<td class="hidden"></td>`; // Hide actions column for other roles (including operation_manager)
+        }
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${record.workLocation}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${record.workPart}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الآلة">${record.machineName}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${record.machineCode}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="قسم الصيانة">${record.maintenanceDepartment || ''}</td>
+            <td class="px-6 py-4 text-sm text-gray-900" data-label="العمل المنفذ"><div class="max-w-xs truncate" title="${record.performedWork}">${record.performedWork}</div></td>
+            <td class="px-6 py-4 text-sm text-gray-900" data-label="قطع الغيار"><div class="max-w-xs truncate" title="${record.sparePartsUsed}">${record.sparePartsUsed}</div></td>
+            <td class="px-6 py-4 text-sm text-gray-900" data-label="ملاحظات"><div class="max-w-xs truncate" title="${record.notes}">${record.notes}</div></td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td>
+            ${actionsHtml}`;
+    });
+}
+
+// Event listeners for maintenance filters
+document.getElementById('search-maintenance-keyword').addEventListener('input', applyMaintenanceFilters);
+document.getElementById('filter-maintenance-location').addEventListener('change', applyMaintenanceFilters);
+document.getElementById('filter-maintenance-machine').addEventListener('change', applyMaintenanceFilters);
+document.getElementById('filter-maintenance-department').addEventListener('change', applyMaintenanceFilters);
+
+
+/**
+ * Populates the dropdowns in the add maintenance record form based on available machines.
+ * @param {Object} [prefillMachine=null] - An optional machine object to pre-fill the form fields.
+ */
+function populateMaintenanceDropdowns(prefillMachine = null) {
+    const workLocationSelect = document.getElementById('maintenance-workLocation');
+    const workPartSelect = document.getElementById('maintenance-workPart');
+    const machineNameSelect = document.getElementById('maintenance-machineName');
+    const machineCodeInput = document.getElementById('maintenance-machineCode');
+    const dataEntryUserInput = document.getElementById('maintenance-dataEntryUser');
+
+    // Reset form fields
+    document.getElementById('add-maintenance-record-form').reset();
+    // Set data entry user to the part of email before @
+    if (window.loggedInUser) {
+        dataEntryUserInput.value = window.loggedInUser.split('@')[0];
+    } else {
+        dataEntryUserInput.value = '';
+    }
+    document.getElementById('maintenance-date').valueAsDate = new Date(); // Set today's date
+
+    // Clear and disable dropdowns initially
+    workLocationSelect.innerHTML = '<option value="">اختر موقع العمل</option>';
+    workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
+    machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
+    machineCodeInput.value = '';
+
+    workLocationSelect.disabled = false;
+    workPartSelect.disabled = true;
+    machineNameSelect.disabled = true;
+    machineCodeInput.disabled = true;
+    workLocationSelect.classList.remove('bg-gray-100');
+    workPartSelect.classList.remove('bg-gray-100');
+    machineNameSelect.classList.remove('bg-gray-100');
+
+    if (prefillMachine) {
+        // Prefill and disable fields based on the provided machine
+        workLocationSelect.innerHTML = `<option value="${prefillMachine.workLocation}">${prefillMachine.workLocation}</option>`;
+        workLocationSelect.value = prefillMachine.workLocation;
+        workLocationSelect.disabled = true;
+        workLocationSelect.classList.add('bg-gray-100');
+
+        workPartSelect.innerHTML = `<option value="${prefillMachine.workPart}">${prefillMachine.workPart}</option>`;
+        workPartSelect.value = prefillMachine.workPart;
+        workPartSelect.disabled = true;
+        workPartSelect.classList.add('bg-gray-100');
+
+        machineNameSelect.innerHTML = `<option value="${prefillMachine.machineName}">${prefillMachine.machineName}</option>`;
+        machineNameSelect.value = prefillMachine.machineName;
+        machineNameSelect.disabled = true;
+        machineNameSelect.classList.add('bg-gray-100');
+
+        machineCodeInput.value = prefillMachine.machineCode;
+        machineCodeInput.disabled = true;
+        machineCodeInput.classList.add('bg-gray-100');
+
+    } else {
+        // Populate dropdowns for manual selection
+        [...new Set(window.machines.map(m => m.workLocation))].forEach(location => {
+            workLocationSelect.innerHTML += `<option value="${location}">${location}</option>`;
+        });
+        
+        // Re-attach event listeners for dynamic population if not prefilling
+        workLocationSelect.onchange = () => {
+            const selectedLocation = workLocationSelect.value;
+            workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
+            machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
+            machineCodeInput.value = '';
+            workPartSelect.disabled = !selectedLocation;
+            machineNameSelect.disabled = true;
+            if (selectedLocation) {
+                [...new Set(window.machines.filter(m => m.workLocation === selectedLocation).map(m => m.workPart))].forEach(part => {
+                    workPartSelect.innerHTML += `<option value="${part}">${part}</option>`;
+                });
+            }
+        };
+
+        workPartSelect.onchange = () => {
+            const selectedLocation = workLocationSelect.value;
+            const selectedPart = workPartSelect.value;
+            machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
+            machineCodeInput.value = '';
+            machineNameSelect.disabled = !selectedPart;
+            if (selectedLocation && selectedPart) {
+                const filteredMachinesByPart = window.machines.filter(m => m.workLocation === selectedLocation && m.workPart === selectedPart);
+                [...new Set(filteredMachinesByPart.map(m => m.machineName))].forEach(name => {
+                    machineNameSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                });
+            }
+        };
+
+        machineNameSelect.onchange = () => {
+            const selectedLocation = workLocationSelect.value;
+            const selectedPart = workPartSelect.value;
+            const selectedMachineName = machineNameSelect.value;
+            machineCodeInput.value = '';
+            if (selectedLocation && selectedPart && selectedMachineName) {
+                const selectedMachine = window.machines.find(m => m.workLocation === selectedLocation && m.workPart === selectedPart && m.machineName === selectedMachineName);
+                if (selectedMachine) {
+                    machineCodeInput.value = selectedMachine.machineCode;
+                }
+            }
+        };
+    }
+}
+
+// Event listener for submitting the maintenance record form (now in modal)
+document.getElementById('add-maintenance-record-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    // Only admin and maintenance_manager can add maintenance records
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لإضافة سجلات صيانة.', [{ text: 'موافق' }]);
+        return;
+    }
+    const newRecord = {
+        date: document.getElementById('maintenance-date').value,
+        workLocation: document.getElementById('maintenance-workLocation').value,
+        workPart: document.getElementById('maintenance-workPart').value,
+        machineName: document.getElementById('maintenance-machineName').value,
+        machineCode: document.getElementById('maintenance-machineCode').value,
+        maintenanceDepartment: document.getElementById('maintenance-department').value,
+        performedWork: document.getElementById('maintenance-performedWork').value.trim(),
+        sparePartsUsed: document.getElementById('maintenance-sparePartsUsed').value.trim(),
+        notes: document.getElementById('maintenance-notes').value.trim(),
+        dataEntryUser: document.getElementById('maintenance-dataEntryUser').value // Use the value from the input field
+    };
+    // Client-side validation
+    if (!newRecord.date || !newRecord.workLocation || !newRecord.workPart || !newRecord.machineName || !newRecord.performedWork || !newRecord.maintenanceDepartment) {
+        showModal('خطأ', 'الرجاء ملء جميع الحقول الإلزامية.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('maintenanceRecords').insert([newRecord]);
+        if (error) {
+            console.error("Error adding maintenance record:", error);
+            showModal('خطأ', `فشل إضافة سجل الصيانة: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تم إتمام العملية بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('maintenance-form-modal').classList.add('hidden');
+                await fetchMaintenanceRecords(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error adding maintenance record:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء إضافة سجل الصيانة: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Displays the modal for adding a maintenance record by machine code.
+ */
+function showAddMaintenanceByCodeModal() {
+    if (window.machines.length === 0) {
+        showModal('لا توجد آلات', 'يرجى إضافة آلات في قسم "سجل الآلات" أولاً.', [{ text: 'موافق' }]);
+        return;
+    }
+    document.getElementById('code-input-modal').classList.remove('hidden');
+    document.getElementById('machine-code-input').value = ''; // Clear previous input
+}
+
+// Event listener for the "OK" button in the code input modal
+document.getElementById('confirm-code-input').addEventListener('click', () => {
+    const machineCode = document.getElementById('machine-code-input').value.trim();
+    if (!machineCode) {
+        showModal('خطأ', 'الرجاء إدخال كود الآلة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const foundMachine = window.machines.find(m => m.machineCode === machineCode);
+
+    if (!foundMachine) {
+        showModal('خطأ', 'لا يوجد كود مطابق في سجل الآلات.', [{ text: 'موافق' }]);
+    } else {
+        document.getElementById('code-input-modal').classList.add('hidden');
+        openMaintenanceFormModal(foundMachine); // Open form with pre-filled data
+    }
+});
+
+/**
+ * Displays the modal for adding a maintenance record by work location (manual selection).
+ */
+function showAddMaintenanceByLocationModal() {
+    if (window.machines.length === 0) {
+        showModal('لا توجد آلات', 'يرجى إضافة آلات في قسم "سجل الآلات" أولاً.', [{ text: 'موافق' }]);
+        return;
+    }
+    openMaintenanceFormModal(); // Open form without pre-filled data
+}
+
+
+/**
+ * Opens the modal for editing a maintenance record.
+ * @param {string} id - The ID of the maintenance record to edit.
+ */
+function openEditMaintenanceRecordModal(id) {
+    const record = window.maintenanceRecords.find(r => r.id == id);
+    if (!record) {
+        showModal('خطأ', 'لم يتم العثور على سجل الصيانة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Permission check: Only admin or the data entry user can edit
+    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+    if (window.loggedInRole !== 'admin' && !isDataEntryUser) {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لتعديل سجل الصيانة هذا.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    document.getElementById('edit-maintenance-record-modal-title').textContent = 'تعديل سجل الصيانة';
+    document.getElementById('edit-maintenance-performedWork').value = record.performedWork;
+    document.getElementById('edit-maintenance-sparePartsUsed').value = record.sparePartsUsed;
+    document.getElementById('edit-maintenance-notes').value = record.notes;
+    
+    window.editingMaintenanceRecordId = id; // Store the ID of the record being edited
+    document.getElementById('edit-maintenance-record-modal').classList.remove('hidden');
+}
+
+// Event listener for submitting the edit maintenance record form in the modal
+document.getElementById('edit-maintenance-record-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    const id = window.editingMaintenanceRecordId;
+    const record = window.maintenanceRecords.find(r => r.id == id);
+    if (!record) {
+        showModal('خطأ', 'لم يتم العثور على سجل الصيانة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Permission check: Only admin or the data entry user can save
+    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+    if (window.loggedInRole !== 'admin' && !isDataEntryUser) {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لحفظ تعديلات سجل الصيانة هذا.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const updatedRecord = {
+        performedWork: document.getElementById('edit-maintenance-performedWork').value.trim(),
+        sparePartsUsed: document.getElementById('edit-maintenance-sparePartsUsed').value.trim(),
+        notes: document.getElementById('edit-maintenance-notes').value.trim()
+    };
+    // Client-side validation
+    if (!updatedRecord.performedWork) {
+        showModal('خطأ', 'الرجاء ملء حقل "العمل المنفذ".', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('maintenanceRecords').update(updatedRecord).eq('id', id);
+        if (error) {
+            console.error("Error updating maintenance record:", error);
+            showModal('خطأ', `فشل تحديث سجل الصيانة: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تم تحديث سجل الصيانة بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('edit-maintenance-record-modal').classList.add('hidden');
+                await fetchMaintenanceRecords(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error saving maintenance record:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حفظ سجل الصيانة: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Deletes a maintenance record after confirmation.
+ * @param {string} id - The ID of the maintenance record to delete.
+ */
+function deleteMaintenanceRecord(id) {
+    const record = window.maintenanceRecords.find(r => r.id == id);
+    if (!record) {
+        showModal('خطأ', 'لم يتم العثور على سجل الصيانة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Permission check: Only admin or the data entry user can delete
+    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+    if (window.loggedInRole !== 'admin' && !isDataEntryUser) {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لحذف سجل الصيانة هذا.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف سجل الصيانة هذا؟', [
+        { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
+            showLoading();
+            try {
+                const { error } = await window.supabase.from('maintenanceRecords').delete().eq('id', id);
+                if (error) {
+                    console.error("Error deleting maintenance record:", error);
+                    showModal('خطأ', `فشل حذف السجل الصيانة: ${error.message}`, [{ text: 'موافق' }]);
+                } else {
+                    showModal('نجاح', 'تم حذف سجل الصيانة بنجاح!', [{ text: 'موافق', onClick: async () => {
+                        await fetchMaintenanceRecords(); // Re-fetch and re-render the table
+                    }}]);
+                }
+            } catch (e) {
+                console.error("Unexpected error deleting maintenance record:", e);
+                showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حذف سجل الصيانة: ${e.message}`, [{ text: 'موافق' }]);
+            } finally {
+                hideLoading();
+            }
+        }},
+        { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
+    ]);
+}
+
+// --- New: Pending Repair Requests Functions ---
+
+/**
+ * Populates the filter dropdowns for pending repair requests based on available data.
+ */
+function populatePendingRequestFilterDropdowns() {
+    const locationFilter = document.getElementById('filter-pending-location');
+    const machineFilter = document.getElementById('filter-pending-machine');
+
+    const currentLocation = locationFilter.value;
+    const currentMachine = machineFilter.value;
+
+    locationFilter.innerHTML = '<option value="">الكل</option>';
+    machineFilter.innerHTML = '<option value="">الكل</option>';
+
+    const uniqueLocations = [...new Set(window.pendingRepairRequests.map(r => r.workLocation))].sort();
+    uniqueLocations.forEach(loc => {
+        locationFilter.innerHTML += `<option value="${loc}">${loc}</option>`;
+    });
+
+    const uniqueMachines = [...new Set(window.pendingRepairRequests.map(r => r.machineName))].sort();
+    uniqueMachines.forEach(machine => {
+        machineFilter.innerHTML += `<option value="${machine}">${machine}</option>`;
+    });
+
+    if (uniqueLocations.includes(currentLocation)) {
+        locationFilter.value = currentLocation;
+    }
+    if (uniqueMachines.includes(currentMachine)) {
+        machineFilter.value = currentMachine;
+    }
+}
+
+/**
+ * Applies filters to the pending repair requests table based on user input.
+ */
+function applyPendingRequestFilters() {
+    const keyword = document.getElementById('search-pending-keyword').value.toLowerCase();
+    const location = document.getElementById('filter-pending-location').value;
+    const machine = document.getElementById('filter-pending-machine').value;
+    const faultType = document.getElementById('filter-pending-faultType').value;
+
+    const filteredRequests = window.pendingRepairRequests.filter(record => {
+        const matchesKeyword = Object.values(record).some(val => 
+            val && val.toString().toLowerCase().includes(keyword)
+        );
+        const matchesLocation = location ? record.workLocation === location : true;
+        const matchesMachine = machine ? record.machineName === machine : true;
+        const matchesFaultType = faultType ? record.faultType === faultType : true;
+
+        return matchesKeyword && matchesLocation && matchesMachine && matchesFaultType;
+    });
+    renderPendingRequestsTable(filteredRequests);
+}
+
+/**
+ * Resets all pending repair request filter fields and re-renders the full table.
+ */
+function resetPendingRequestFilters() {
+    document.getElementById('search-pending-keyword').value = '';
+    document.getElementById('filter-pending-location').value = '';
+    document.getElementById('filter-pending-machine').value = '';
+    document.getElementById('filter-pending-faultType').value = '';
+    renderPendingRequestsTable(window.pendingRepairRequests); // Render all records
+}
+
+/**
+ * Renders the pending repair requests table with filtered or all records.
+ * Adjusts action button visibility based on user role.
+ * @param {Array<Object>} [filteredRequests=window.pendingRepairRequests] - The array of pending requests to display.
+ */
+function renderPendingRequestsTable(filteredRequests = window.pendingRepairRequests) {
+    const tableBody = document.getElementById('pending-requests-table-body');
+    tableBody.innerHTML = '';
+    const actionsHeader = document.querySelector('#pending-requests-section .pending-actions-header');
+    
+    // Only admin and operation_manager can manage pending requests (add/edit/delete)
+    const canManagePendingRequests = (window.loggedInRole === 'admin' || window.loggedInRole === 'operation_manager');
+    // Only admin and maintenance_manager can execute repair requests
+    const canExecuteRepair = (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager');
+
+    if (canManagePendingRequests || canExecuteRepair) { // Show header if any action is possible
+        actionsHeader.classList.remove('hidden');
+    } else {
+        actionsHeader.classList.add('hidden');
+    }
+
+    if (filteredRequests.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="12" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد طلبات إصلاح معلقة لعرضها.</td></tr>`;
+        return;
+    }
+    filteredRequests.forEach(record => {
+        const row = tableBody.insertRow();
+        row.setAttribute('data-id', record.id);
+        row.classList.add('hover:bg-gray-50');
+        let actionsHtml = '';
+        if (canManagePendingRequests || canExecuteRepair) { 
+            // Check if the logged-in user is the data entry user OR an admin for edit/delete
+            const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+            const canEditOrDelete = isDataEntryUser || window.loggedInRole === 'admin';
+
+            actionsHtml = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                    ${(window.loggedInRole === 'admin' || window.loggedInRole === 'operation_manager') ? `
+                        <button onclick="openEditPendingRequestModal('${record.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0 ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="تعديل" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
+                        <button onclick="deletePendingRepairRequest('${record.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0 ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="حذف" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>
+                    ` : ''}
+                    ${canExecuteRepair ? `
+                        <button onclick="executeRepairRequestModal('${record.id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs" title="تنفيذ الإصلاح"><i class="fas fa-play"></i></button>
+                    ` : ''}
+                </td>`;
+        } else {
+            actionsHtml = `<td class="hidden"></td>`; // Hide actions column for other roles
+        }
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الوقت">${record.time || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مكان العمل">${record.workLocation}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${record.workPart}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الآلة">${record.machineName}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${record.machineCode}</td>
+            <td class="px-6 py-4 text-sm text-gray-900" data-label="العطل"><div class="max-w-xs truncate" title="${record.fault}">${record.fault}</div></td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="نوع العطل">${record.faultType || ''}</td>
+            <td class="px-6 py-4 text-sm text-gray-900" data-label="ملاحظات"><div class="max-w-xs truncate" title="${record.notes}">${record.notes}</div></td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td>
+            ${actionsHtml}`;
+    });
+}
+
+// Event listeners for pending repair request filters
+document.getElementById('search-pending-keyword').addEventListener('input', applyPendingRequestFilters);
+document.getElementById('filter-pending-location').addEventListener('change', applyPendingRequestFilters);
+document.getElementById('filter-pending-machine').addEventListener('change', applyPendingRequestFilters);
+document.getElementById('filter-pending-faultType').addEventListener('change', applyPendingRequestFilters);
+
+/**
+ * Displays the modal for adding a pending repair request by machine code.
+ */
+function showAddPendingByCodeModal() {
+    if (window.machines.length === 0) {
+        showModal('لا توجد آلات', 'يرجى إضافة آلات في قسم "سجل الآلات" أولاً.', [{ text: 'موافق' }]);
+        return;
+    }
+    document.getElementById('pending-code-input-modal').classList.remove('hidden');
+    document.getElementById('pending-machine-code-input').value = ''; // Clear previous input
+}
+
+// Event listener for the "OK" button in the pending code input modal
+document.getElementById('confirm-pending-code-input').addEventListener('click', () => {
+    const machineCode = document.getElementById('pending-machine-code-input').value.trim();
+    if (!machineCode) {
+        showModal('خطأ', 'الرجاء إدخال كود الآلة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const foundMachine = window.machines.find(m => m.machineCode === machineCode);
+
+    if (!foundMachine) {
+        showModal('خطأ', 'لا يوجد كود مطابق في سجل الآلات.', [{ text: 'موافق' }]);
+    } else {
+        document.getElementById('pending-code-input-modal').classList.add('hidden');
+        openPendingRequestFormModal(foundMachine); // Open form with pre-filled data
+    }
+});
+
+/**
+ * Displays the modal for adding a pending repair request by work location (manual selection).
+ */
+function showAddPendingByLocationModal() {
+    if (window.machines.length === 0) {
+        showModal('لا توجد آلات', 'يرجى إضافة آلات في قسم "سجل الآلات" أولاً.', [{ text: 'موافق' }]);
+        return;
+    }
+    openPendingRequestFormModal(); // Open form without pre-filled data
+}
+
+/**
+ * Opens the pending repair request form modal, optionally pre-filling it with machine data.
+ * @param {Object} [machine=null] - The machine object to pre-fill the form with.
+ */
+function openPendingRequestFormModal(machine = null) {
+    document.getElementById('pending-request-form-modal').classList.remove('hidden');
+    document.getElementById('pending-request-form-modal-title').textContent = machine ? 'إضافة طلب إصلاح معلق (للآلة المحددة)' : 'إضافة طلب إصلاح معلق جديد';
+    populatePendingRequestDropdowns(machine);
+}
+
+/**
+ * Populates the dropdowns in the add pending repair request form based on available machines.
+ * @param {Object} [prefillMachine=null] - An optional machine object to pre-fill the form fields.
+ */
+function populatePendingRequestDropdowns(prefillMachine = null) {
+    const workLocationSelect = document.getElementById('pending-workLocation');
+    const workPartSelect = document.getElementById('pending-workPart');
+    const machineNameSelect = document.getElementById('pending-machineName');
+    const machineCodeInput = document.getElementById('pending-machineCode');
+    const dataEntryUserInput = document.getElementById('pending-dataEntryUser');
+    const dateInput = document.getElementById('pending-date');
+    const timeInput = document.getElementById('pending-time');
+
+    // Reset form fields
+    document.getElementById('add-pending-request-form').reset();
+    
+    // Auto-fill date and time
+    const now = new Date();
+    dateInput.valueAsDate = now;
+    timeInput.value = now.toTimeString().slice(0, 5); // HH:MM format
+
+    // Auto-fill data entry user (part before @)
+    if (window.loggedInUser) {
+        dataEntryUserInput.value = window.loggedInUser.split('@')[0];
+    } else {
+        dataEntryUserInput.value = '';
+    }
+    
+    // Clear and disable dropdowns initially
+    workLocationSelect.innerHTML = '<option value="">اختر مكان العمل</option>';
+    workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
+    machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
+    machineCodeInput.value = '';
+
+    workLocationSelect.disabled = false;
+    workPartSelect.disabled = true;
+    machineNameSelect.disabled = true;
+    machineCodeInput.disabled = true;
+    workLocationSelect.classList.remove('bg-gray-100');
+    workPartSelect.classList.remove('bg-gray-100');
+    machineNameSelect.classList.remove('bg-gray-100');
+
+    if (prefillMachine) {
+        // Prefill and disable fields based on the provided machine
+        workLocationSelect.innerHTML = `<option value="${prefillMachine.workLocation}">${prefillMachine.workLocation}</option>`;
+        workLocationSelect.value = prefillMachine.workLocation;
+        workLocationSelect.disabled = true;
+        workLocationSelect.classList.add('bg-gray-100');
+
+        workPartSelect.innerHTML = `<option value="${prefillMachine.workPart}">${prefillMachine.workPart}</option>`;
+        workPartSelect.value = prefillMachine.workPart;
+        workPartSelect.disabled = true;
+        workPartSelect.classList.add('bg-gray-100');
+
+        machineNameSelect.innerHTML = `<option value="${prefillMachine.machineName}">${prefillMachine.machineName}</option>`;
+        machineNameSelect.value = prefillMachine.machineName;
+        machineNameSelect.disabled = true;
+        machineNameSelect.classList.add('bg-gray-100');
+
+        machineCodeInput.value = prefillMachine.machineCode;
+        machineCodeInput.disabled = true;
+        machineCodeInput.classList.add('bg-gray-100');
+
+    } else {
+        // Populate dropdowns for manual selection
+        [...new Set(window.machines.map(m => m.workLocation))].forEach(location => {
+            workLocationSelect.innerHTML += `<option value="${location}">${location}</option>`;
+        });
+        
+        // Re-attach event listeners for dynamic population if not prefilling
+        workLocationSelect.onchange = () => {
+            const selectedLocation = workLocationSelect.value;
+            workPartSelect.innerHTML = '<option value="">اختر جزء العمل</option>';
+            machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
+            machineCodeInput.value = '';
+            workPartSelect.disabled = !selectedLocation;
+            machineNameSelect.disabled = true;
+            if (selectedLocation) {
+                [...new Set(window.machines.filter(m => m.workLocation === selectedLocation).map(m => m.workPart))].forEach(part => {
+                    workPartSelect.innerHTML += `<option value="${part}">${part}</option>`;
+                });
+            }
+        };
+
+        workPartSelect.onchange = () => {
+            const selectedLocation = workLocationSelect.value;
+            const selectedPart = workPartSelect.value;
+            machineNameSelect.innerHTML = '<option value="">اختر الآلة</option>';
+            machineCodeInput.value = '';
+            machineNameSelect.disabled = !selectedPart;
+            if (selectedLocation && selectedPart) {
+                const filteredMachinesByPart = window.machines.filter(m => m.workLocation === selectedLocation && m.workPart === selectedPart);
+                [...new Set(filteredMachinesByPart.map(m => m.machineName))].forEach(name => {
+                    machineNameSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                });
+            }
+        };
+
+        machineNameSelect.onchange = () => {
+            const selectedLocation = workLocationSelect.value;
+            const selectedPart = workPartSelect.value;
+            const selectedMachineName = machineNameSelect.value;
+            machineCodeInput.value = '';
+            if (selectedLocation && selectedPart && selectedMachineName) {
+                const selectedMachine = window.machines.find(m => m.workLocation === selectedLocation && m.workPart === selectedPart && m.machineName === selectedMachineName);
+                if (selectedMachine) {
+                    machineCodeInput.value = selectedMachine.machineCode;
+                }
+            }
+        };
+    }
+}
+
+// Event listener for submitting the pending repair request form
+document.getElementById('add-pending-request-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    // Only admin and operation_manager can add pending requests
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'operation_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لإضافة طلبات إصلاح معلقة.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const newRequest = {
+        date: document.getElementById('pending-date').value,
+        time: document.getElementById('pending-time').value,
+        workLocation: document.getElementById('pending-workLocation').value,
+        workPart: document.getElementById('pending-workPart').value,
+        machineName: document.getElementById('pending-machineName').value,
+        machineCode: document.getElementById('pending-machineCode').value,
+        fault: document.getElementById('pending-fault').value.trim(),
+        faultType: document.getElementById('pending-faultType').value,
+        notes: document.getElementById('pending-notes').value.trim(),
+        dataEntryUser: document.getElementById('pending-dataEntryUser').value, // Use the value from the input field
+        status: 'Pending' // Default status
+    };
+
+    // Client-side validation
+    if (!newRequest.date || !newRequest.time || !newRequest.workLocation || !newRequest.workPart || !newRequest.machineName || !newRequest.machineCode || !newRequest.fault || !newRequest.faultType || !newRequest.dataEntryUser) {
+        showModal('خطأ', 'الرجاء ملء جميع الحقول الإلزامية.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('pendingRepairRequests').insert([newRequest]);
+        if (error) {
+            console.error("Error adding pending repair request:", error);
+            showModal('خطأ', `فشل إضافة طلب الإصلاح المعلق: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تم إضافة طلب الإصلاح المعلق بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('pending-request-form-modal').classList.add('hidden');
+                await fetchPendingRepairRequests(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error adding pending repair request:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء إضافة طلب الإصلاح المعلق: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Opens the modal for editing a pending repair request.
+ * @param {string} id - The ID of the pending repair request to edit.
+ */
+function openEditPendingRequestModal(id) {
+    const record = window.pendingRepairRequests.find(r => r.id == id);
+    if (!record) {
+        showModal('خطأ', 'لم يتم العثور على طلب الإصلاح المعلق.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Permission check: Only admin or the data entry user can edit
+    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+    if (window.loggedInRole !== 'admin' && !isDataEntryUser) {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لتعديل طلب الإصلاح المعلق هذا.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    document.getElementById('edit-pending-request-modal-title').textContent = 'تعديل طلب الإصلاح المعلق';
+    document.getElementById('edit-pending-fault').value = record.fault;
+    document.getElementById('edit-pending-faultType').value = record.faultType;
+    document.getElementById('edit-pending-notes').value = record.notes;
+    
+    window.editingPendingRequestId = id; // Store the ID of the record being edited
+    document.getElementById('edit-pending-request-modal').classList.remove('hidden');
+}
+
+// Event listener for submitting the edit pending repair request form in the modal
+document.getElementById('edit-pending-request-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    const id = window.editingPendingRequestId;
+    const record = window.pendingRepairRequests.find(r => r.id == id);
+    if (!record) {
+        showModal('خطأ', 'لم يتم العثور على طلب الإصلاح المعلق.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Permission check: Only admin or the data entry user can save
+    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+    if (window.loggedInRole !== 'admin' && !isDataEntryUser) {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لحفظ تعديلات طلب الإصلاح المعلق هذا.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const updatedRecord = {
+        fault: document.getElementById('edit-pending-fault').value.trim(),
+        faultType: document.getElementById('edit-pending-faultType').value,
+        notes: document.getElementById('edit-pending-notes').value.trim()
+    };
+    // Client-side validation
+    if (!updatedRecord.fault || !updatedRecord.faultType) {
+        showModal('خطأ', 'الرجاء ملء حقول "العطل" و "نوع العطل".', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('pendingRepairRequests').update(updatedRecord).eq('id', id);
+        if (error) {
+            console.error("Error updating pending repair request:", error);
+            showModal('خطأ', `فشل تحديث طلب الإصلاح المعلق: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تم تحديث طلب الإصلاح المعلق بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('edit-pending-request-modal').classList.add('hidden');
+                await fetchPendingRepairRequests(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error saving pending repair request:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حفظ طلب الإصلاح المعلق: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Deletes a pending repair request record after confirmation.
+ * @param {string} id - The ID of the pending repair request to delete.
+ */
+function deletePendingRepairRequest(id) {
+    const record = window.pendingRepairRequests.find(r => r.id == id);
+    if (!record) {
+        showModal('خطأ', 'لم يتم العثور على طلب الإصلاح المعلق.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Permission check: Only admin or the data entry user can delete
+    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+    if (window.loggedInRole !== 'admin' && !isDataEntryUser) {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لحذف طلب الإصلاح المعلق هذا.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف طلب الإصلاح المعلق هذا؟', [
+        { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
+            showLoading();
+            try {
+                const { error } = await window.supabase.from('pendingRepairRequests').delete().eq('id', id);
+                if (error) {
+                    console.error("Error deleting pending repair request:", error);
+                    showModal('خطأ', `فشل حذف طلب الإصلاح المعلق: ${error.message}`, [{ text: 'موافق' }]);
+                } else {
+                    showModal('نجاح', 'تم حذف طلب الإصلاح المعلق بنجاح!', [{ text: 'موافق', onClick: async () => {
+                        await fetchPendingRepairRequests(); // Re-fetch and re-render the table
+                    }}]);
+                }
+            } catch (e) {
+                console.error("Unexpected error deleting pending repair request:", e);
+                showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حذف طلب الإصلاح المعلق: ${e.message}`, [{ text: 'موافق' }]);
+            } finally {
+                hideLoading();
+            }
+        }},
+        { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
+    ]);
+}
+
+/**
+ * Displays the modal for executing a repair request.
+ * @param {string} pendingRequestId - The ID of the pending repair request to execute.
+ */
+function executeRepairRequestModal(pendingRequestId) {
+    // Only admin and maintenance_manager can execute repair requests
+    if (window.loggedInRole !== 'admin' && window.loggedInRole !== 'maintenance_manager') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لتنفيذ طلبات الإصلاح.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Changed from === to == to handle potential type mismatch (string vs number)
+    const pendingRequest = window.pendingRepairRequests.find(req => req.id == pendingRequestId);
+    if (!pendingRequest) {
+        showModal('خطأ', 'لم يتم العثور على طلب الإصلاح المعلق.', [{ text: 'موافق' }]);
+        return;
+    }
+    window.currentPendingRequestToExecute = pendingRequest; // Store for later use
+
+    // Clear form fields
+    document.getElementById('performed-work-input').value = '';
+    document.getElementById('spare-parts-used-input').value = '';
+    document.getElementById('execute-notes-input').value = '';
+
+    document.getElementById('execute-repair-modal').classList.remove('hidden');
+}
+
+// Event listener for submitting the execute repair form
+document.getElementById('execute-repair-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    
+    const performedWork = document.getElementById('performed-work-input').value.trim();
+    const sparePartsUsed = document.getElementById('spare-parts-used-input').value.trim();
+    const additionalNotes = document.getElementById('execute-notes-input').value.trim();
+
+    if (!performedWork) {
+        showModal('خطأ', 'الرجاء إدخال العمل المنفذ.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    const originalPendingRequest = window.currentPendingRequestToExecute;
+    if (!originalPendingRequest) {
+        showModal('خطأ', 'حدث خطأ غير متوقع: لم يتم العثور على طلب الإصلاح الأصلي.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Construct the notes for the new maintenance record
+    let combinedNotes = "طلب اصلاح";
+    if (originalPendingRequest.notes) {
+        combinedNotes += ` (${originalPendingRequest.notes})`;
+    }
+    if (originalPendingRequest.dataEntryUser) {
+        combinedNotes += ` (${originalPendingRequest.dataEntryUser})`;
+    }
+    if (additionalNotes) {
+        combinedNotes += ` ${additionalNotes}`;
+    }
+
+    const newMaintenanceRecord = {
+        date: new Date().toISOString().slice(0, 10), // Current date
+        workLocation: originalPendingRequest.workLocation,
+        workPart: originalPendingRequest.workPart,
+        machineName: originalPendingRequest.machineName,
+        machineCode: originalPendingRequest.machineCode,
+        maintenanceDepartment: originalPendingRequest.faultType, // Fault type becomes maintenance department
+        performedWork: performedWork,
+        sparePartsUsed: sparePartsUsed,
+        notes: combinedNotes,
+        dataEntryUser: window.loggedInUser.split('@')[0] // Current logged-in user's name
+    };
+
+    showLoading();
+    try {
+        // Add to maintenance records
+        const { error: addMaintenanceError } = await window.supabase.from('maintenanceRecords').insert([newMaintenanceRecord]);
+        if (addMaintenanceError) {
+            console.error("Error adding maintenance record from pending request:", addMaintenanceError);
+            showModal('خطأ', `فشل إضافة سجل الصيانة: ${addMaintenanceError.message}`, [{ text: 'موافق' }]);
+            return;
+        }
+
+        // Delete from pending repair requests
+        const { error: deletePendingError } = await window.supabase.from('pendingRepairRequests').delete().eq('id', originalPendingRequest.id);
+        if (deletePendingError) {
+            console.error("Error deleting pending repair request after execution:", deletePendingError);
+            showModal('خطأ', `تمت إضافة سجل الصيانة ولكن فشل حذف طلب الإصلاح المعلق: ${deletePendingError.message}`, [{ text: 'موافق' }]);
+            // Even if delete fails, we proceed because maintenance record was added
+        } else {
+            showModal('نجاح', 'تم تنفيذ طلب الإصلاح وإضافته إلى سجل الصيانة بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('execute-repair-modal').classList.add('hidden');
+                await fetchMaintenanceRecords(); // Refresh maintenance log
+                await fetchPendingRepairRequests(); // Refresh pending requests log
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error during repair execution:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء تنفيذ الإصلاح: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+
+// --- Excel Export Functions ---
+
+/**
+ * Exports machine data to an Excel file.
+ */
+function exportMachinesToExcel() {
+    if (window.machines.length === 0) {
+        showModal('لا توجد بيانات', 'لا توجد آلات لتصديرها.', [{ text: 'موافق' }]);
+        return;
+    }
+    const dataToExport = window.machines.map(m => ({
+        'موقع العمل': m.workLocation,
+        'جزء العمل': m.workPart,
+        'اسم الآلة': m.machineName,
+        'كود الآلة': m.machineCode,
+        'النوع': m.type,
+        'الرقم التسلسلي': m.serial_number,
+        'المرجع (URL)': m.url
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "سجل الآلات");
+    XLSX.writeFile(wb, "سجل_الآلات.xlsx");
+    showModal('نجاح', 'تم تصدير سجل الآلات بنجاح!', [{ text: 'موافق' }]);
+}
+
+/**
+ * Filters maintenance records based on search term and date range for export.
+ * @returns {Array<Object>} - The filtered maintenance records.
+ */
+function getFilteredMaintenanceRecordsForExport() {
+    let recordsToFilter = [...window.maintenanceRecords];
+    const searchTerm = document.getElementById('search-maintenance-keyword').value.toLowerCase();
+    const location = document.getElementById('filter-maintenance-location').value;
+    const machine = document.getElementById('filter-maintenance-machine').value;
+    const department = document.getElementById('filter-maintenance-department').value;
+
+    recordsToFilter = recordsToFilter.filter(record => {
+        const matchesKeyword = Object.values(record).some(val => 
+            val && val.toString().toLowerCase().includes(keyword)
+        );
+        const matchesLocation = location ? record.workLocation === location : true;
+        const matchesMachine = machine ? record.machineName === machine : true;
+        const matchesDepartment = department ? record.maintenanceDepartment === department : true;
+
+        return matchesKeyword && matchesLocation && matchesMachine && matchesDepartment;
+    });
+
+    const startDate = document.getElementById('export-start-date').value;
+    const endDate = document.getElementById('export-end-date').value;
+
+    if (!startDate && !endDate) return recordsToFilter;
+
+    return recordsToFilter.filter(record => {
+        const recordDate = new Date(record.date);
+        const start = startDate ? new Date(startDate) : null;
+        if(start) start.setHours(0,0,0,0); // Set to start of the day
+        const end = endDate ? new Date(endDate) : null;
+        if(end) end.setHours(23,59,59,999); // Set to end of the day
+
+        if (start && end) return recordDate >= start && recordDate <= end;
+        if (start) return recordDate >= start;
+        if (end) return recordDate <= end;
+        return false;
+    });
+}
+
+/**
+ * Exports filtered maintenance data to an Excel file.
+ */
+function exportMaintenanceToExcel() {
+    const recordsToExport = getFilteredMaintenanceRecordsForExport();
+    if (recordsToExport.length === 0) {
+        showModal('لا توجد بيانات', 'لا توجد سجلات صيانة لتصديرها في الفترة المحددة أو بناءً على البحث الحالي.', [{ text: 'موافق' }]);
+        return;
+    }
+    const dataToExport = recordsToExport.map(r => ({
+        'التاريخ': r.date, 
+        'موقع العمل': r.workLocation, 
+        'جزء العمل': r.workPart, 
+        'الآلة': r.machineName, 
+        'كود الآلة': r.machineCode, 
+        'قسم الصيانة': r.maintenanceDepartment,
+        'العمل المنفذ': r.performedWork, 
+        'قطع الغيار المستخدمة': r.sparePartsUsed, 
+        'ملاحظات': r.notes,
+        'مدخل البيانات': r.dataEntryUser
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "سجل الصيانة");
+    XLSX.writeFile(wb, "سجل_الصيانة.xlsx");
+    showModal('نجاح', 'تم تصدير سجل الصيانة بنجاح!', [{ text: 'موافق' }]);
+}
+
+/**
+ * Exports pending repair request data to an Excel file.
+ */
+function exportPendingRequestsToExcel() {
+    const recordsToExport = window.pendingRepairRequests.filter(record => {
+        const keyword = document.getElementById('search-pending-keyword').value.toLowerCase();
+        const location = document.getElementById('filter-pending-location').value;
+        const machine = document.getElementById('filter-pending-machine').value;
+        const faultType = document.getElementById('filter-pending-faultType').value;
+
+        const matchesKeyword = Object.values(record).some(val => 
+            val && val.toString().toLowerCase().includes(keyword)
+        );
+        const matchesLocation = location ? record.workLocation === location : true;
+        const matchesMachine = machine ? record.machineName === machine : true;
+        const matchesFaultType = faultType ? record.faultType === faultType : true;
+
+        return matchesKeyword && matchesLocation && matchesMachine && matchesFaultType;
+    });
+
+    if (recordsToExport.length === 0) {
+        showModal('لا توجد بيانات', 'لا توجد طلبات إصلاح معلقة لتصديرها بناءً على البحث الحالي.', [{ text: 'موافق' }]);
+        return;
+    }
+    const dataToExport = recordsToExport.map(r => ({
+        'التاريخ': r.date,
+        'الوقت': r.time,
+        'مكان العمل': r.workLocation,
+        'جزء العمل': r.workPart,
+        'الآلة': r.machineName,
+        'كود الآلة': r.machineCode,
+        'العطل': r.fault,
+        'نوع العطل': r.faultType,
+        'ملاحظات': r.notes,
+        'مدخل البيانات': r.dataEntryUser
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "طلبات_الإصلاح_المعلقة");
+    XLSX.writeFile(wb, "طلبات_الإصلاح_المعلقة.xlsx");
+    showModal('نجاح', 'تم تصدير طلبات الإصلاح المعلقة بنجاح!', [{ text: 'موافق' }]);
+}
+
+
+// --- Account Management Functions ---
+/**
+ * Renders the users table.
+ * Now fetches from 'user_profiles' table.
+ */
+function renderUsersTable() {
+    const tableBody = document.getElementById('users-table-body');
+    tableBody.innerHTML = '';
+    if (window.users.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد حسابات لعرضها.</td></tr>`;
+        return;
+    }
+    window.users.forEach(user => {
+        const row = tableBody.insertRow();
+        row.setAttribute('data-id', user.id);
+        // Map internal role names to display names
+        const roleDisplayMap = {
+            'admin': 'مسؤول',
+            'maintenance_manager': 'مسؤول صيانة',
+            'operation_manager': 'مسؤول تشغيل',
+            'user': 'مستخدم'
+        };
+        let roleDisplay = roleDisplayMap[user.role] || user.role; // Fallback if role not in map
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم المستخدم (البريد الإلكتروني)">${user.username}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الدور">${roleDisplay}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                <button onclick="editUser('${user.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0" title="تعديل الدور"><i class="fas fa-user-edit"></i></button>
+                <!-- Deleting other users requires service_role key, not possible client-side with anon key -->
+                ${user.username !== window.loggedInUser ? `<button onclick="showModal('غير متاح', 'حذف المستخدمين الآخرين غير متاح من الواجهة الأمامية لأسباب أمنية. يرجى استخدام لوحة تحكم Supabase أو وظيفة خلفية.', [{text: 'موافق'}])" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs disabled-button" title="حذف (غير متاح)"><i class="fas fa-user-slash"></i></button>` : ''}
+            </td>`;
+    });
+}
+
+// Event listener for updating the role display in the add user form
+document.getElementById('new-username').addEventListener('input', function() {
+    const emailInput = this.value.trim();
+    const derivedRole = deriveRoleFromEmail(emailInput);
+    const roleDisplayMap = {
+        'admin': 'مسؤول',
+        'maintenance_manager': 'مسؤول صيانة',
+        'operation_manager': 'مسؤول تشغيل',
+        'user': 'مستخدم'
+    };
+    document.getElementById('new-role-display').value = roleDisplayMap[derivedRole] || derivedRole;
+});
+
+
+document.getElementById('add-user-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    if (window.loggedInRole !== 'admin') {
+        showModal('خطأ في الصلاحيات', 'ليس لديك صلاحية لإضافة مستخدمين.', [{ text: 'موافق' }]);
+        return;
+    }
+    const newEmail = document.getElementById('new-username').value.trim();
+    const newPassword = document.getElementById('new-password').value.trim();
+    const derivedRole = deriveRoleFromEmail(newEmail); // Derive role from email
+
+    // Client-side validation
+    if (!newEmail || !newPassword) {
+        showModal('خطأ', 'الرجاء ملء جميع الحقول (البريد الإلكتروني وكلمة المرور).', [{ text: 'موافق' }]);
+        return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        showModal('خطأ', 'الرجاء إدخال بريد إلكتروني صالح.', [{ text: 'موافق' }]);
+        return;
+    }
+    if (newPassword.length < 6) { // Supabase default minimum password length is 6
+        showModal('خطأ', 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        // First, sign up the user with Supabase Auth
+        const { data, error: authError } = await window.supabase.auth.signUp({
+            email: newEmail,
+            password: newPassword,
+        });
+
+        if (authError) {
+            console.error("Error signing up user with Supabase Auth:", authError);
+            showModal('خطأ في إضافة المستخدم', `فشل إضافة المستخدم: ${authError.message}`, [{ text: 'موافق' }]);
+            return;
+        }
+
+        if (data.user) {
+            // If auth signup is successful, add their profile to our user_profiles table
+            const { error: profileError } = await window.supabase.from('user_profiles').insert({
+                id: data.user.id,
+                username: newEmail, // Store email as username
+                role: derivedRole // Store the derived role
+            });
+
+            if (profileError) {
+                console.error("Error adding user profile:", profileError);
+                showModal('خطأ', `تم إنشاء الحساب ولكن فشل حفظ الدور: ${profileError.message}. يرجى الاتصال بالمسؤول.`, [{ text: 'موافق' }]);
+                // Consider deleting the auth user if profile creation fails critically
+                // (This would require service_role key or a backend function)
+            } else {
+                document.getElementById('add-user-form').reset();
+                document.getElementById('new-role-display').value = ''; // Clear derived role display
+                showModal('نجاح', 'تمت إضافة المستخدم بنجاح!', [{ text: 'موافق', onClick: async () => {
+                    await fetchUsers(); // Re-fetch and re-render the table
+                }}]);
+            }
+        } else {
+            showModal('خطأ', 'حدث خطأ غير متوقع أثناء إضافة المستخدم.', [{ text: 'موافق' }]);
+        }
+    } catch (e) {
+        console.error("Unexpected error adding user:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء إضافة المستخدم: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+/**
+ * Enables editing for a specific user record in the table.
+ * Now only allows editing the role in 'user_profiles'.
+ * @param {string} id - The ID of the user profile to edit.
+ */
+function editUser(id) {
+    const row = document.querySelector(`#users-table-body tr[data-id='${id}']`);
+    const user = window.users.find(u => u.id == id);
+    if (!row || !user) return;
+
+    // Role options with display names
+    const roleOptions = [
+        { value: 'user', text: 'مستخدم' },
+        { value: 'operation_manager', text: 'مسؤول تشغيل' },
+        { value: 'maintenance_manager', text: 'مسؤول صيانة' },
+        { value: 'admin', text: 'مسؤول' }
+    ].map(role => 
+        `<option value="${role.value}" ${user.role === role.value ? 'selected' : ''}>${role.text}</option>`
+    ).join('');
+
+    row.innerHTML = `
+        <td data-label="اسم المستخدم (البريد الإلكتروني)">${user.username}</td>
+        <td data-label="الدور">
+            <select class="w-full p-1 border rounded" id="edit-role-${id}">
+                ${roleOptions}
+            </select>
+        </td>
+        <td data-label="الإجراءات">
+            <button onclick="saveUser('${id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0" title="حفظ الدور"><i class="fas fa-save"></i></button>
+            <button onclick="renderUsersTable()" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-xs" title="إلغاء"><i class="fas fa-times"></i></button>
+        </td>`;
+}
+
+/**
+ * Saves the edited user profile (role) to Supabase.
+ * @param {string} id - The ID of the user profile to save.
+ */
+async function saveUser(id) {
+    const updatedRole = document.getElementById(`edit-role-${id}`).value;
+    
+    showLoading();
+    try {
+        const { error } = await window.supabase.from('user_profiles').update({ role: updatedRole }).eq('id', id);
+        if (error) {
+            console.error("Error updating user profile:", error);
+            showModal('خطأ', `فشل تحديث دور المستخدم: ${error.message}`, [{ text: 'موافق' }]);
+        } else {
+            showModal('نجاح', 'تم تحديث دور المستخدم بنجاح!', [{ text: 'موافق', onClick: async () => {
+                await fetchUsers(); // Re-fetch and re-render the table
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error saving user profile:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حفظ دور المستخدم: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * Deletes a user record after confirmation.
+ * Note: Direct deletion of other users is not possible client-side with anon key.
+ * This function now only allows a user to delete their OWN account (via Supabase Auth signOut).
+ * Admin deletion of other users would require a service_role key and backend logic.
+ * @param {string} id - The ID of the user to delete.
+ */
+function deleteUser(id) {
+    // Check if the user is trying to delete their own account
+    const userToDelete = window.users.find(u => u.id == id);
+    if (userToDelete && userToDelete.username === window.loggedInUser) {
+        showModal('تأكيد الحذف', 'هل أنت متأكد أنك تريد حذف حسابك؟ سيؤدي هذا إلى تسجيل خروجك.', [
+            { text: 'نعم', className: 'bg-red-600 hover:bg-red-700 text-white', onClick: async () => {
+                showLoading();
+                try {
+                    // --- ملاحظة أمنية هامة ---
+                    // يتطلب حذف حساب المستخدم من Supabase Auth مفتاح service_role
+                    // ويجب أن يتم ذلك من جانب خادم آمن (مثل Supabase Edge Function)
+                    // لمنع عمليات الحذف غير المصرح بها.
+                    // signOut() من جانب العميل يقوم فقط بإلغاء صلاحية الجلسة الحالية.
+                    // حذف سجل المستخدم من جدول user_profiles يتم أيضًا باستخدام مفتاح anon،
+                    // مع الاعتماد على سياسات RLS لتقييده على ملف تعريف المستخدم نفسه.
+                    const { error: signOutError } = await window.supabase.auth.signOut();
+                    if (signOutError) {
+                        console.error("Error signing out user:", signOutError);
+                        showModal('خطأ', `فشل تسجيل الخروج: ${signOutError.message}`, [{ text: 'موافق' }]);
+                        return;
+                    }
+                    // Then delete their profile from user_profiles table
+                    const { error: profileDeleteError } = await window.supabase.from('user_profiles').delete().eq('id', id);
+                    if (profileDeleteError) {
+                        console.error("Error deleting user profile:", profileDeleteError);
+                        showModal('خطأ', `تم تسجيل خروجك ولكن فشل حذف ملفك الشخصي: ${profileDeleteError.message}`, [{ text: 'موافق' }]);
+                    } else {
+                        showModal('نجاح', 'تم حذف حسابك بنجاح!', [{ text: 'موافق', onClick: () => window.location.reload() }]);
+                    }
+                } catch (e) {
+                    console.error("Unexpected error deleting user:", e);
+                    showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء حذف المستخدم: ${e.message}`, [{ text: 'موافق' }]);
+                } finally {
+                    hideLoading();
+                }
+            }},
+            { text: 'إلغاء', className: 'bg-gray-500 hover:bg-gray-600 text-white' }
+        ]);
+    } else {
+        // For other users, display a message about limitations
+        showModal('غير متاح', 'حذف المستخدمين الآخرين غير متاح من الواجهة الأمامية لأسباب أمنية. يرجى استخدام لوحة تحكم Supabase أو وظيفة خلفية.', [{text: 'موافق'}]);
+    }
+}
+
+// --- Function for Change Password Modal ---
+/**
+ * Displays the change password modal and clears its form fields.
+ */
+function showChangePasswordModal() {
+    document.getElementById('change-password-modal').classList.remove('hidden');
+    // Clear form fields when opening
+    document.getElementById('change-password-form').reset();
+}
+
+// --- Event Listener for Change Password Form Submission ---
+document.getElementById('change-password-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    
+    const currentPasswordInput = document.getElementById('current-password').value;
+    const newPasswordInput = document.getElementById('new-user-password').value;
+    const confirmNewPasswordInput = document.getElementById('confirm-new-user-password').value;
+
+    // Basic validation
+    if (!currentPasswordInput || !newPasswordInput || !confirmNewPasswordInput) {
+        showModal('خطأ', 'الرجاء ملء جميع حقول كلمة المرور.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    if (newPasswordInput !== confirmNewPasswordInput) {
+        showModal('خطأ', 'كلمة المرور الجديدة وتأكيدها غير متطابقين.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    // Client-side check to prevent Supabase error if new password is same as current
+    // IMPORTANT: This is a UX improvement. True old password validation would require a backend.
+    // The currentPasswordInput is collected for UX purposes only, not for authentication here.
+    if (newPasswordInput === currentPasswordInput) {
+        showModal('خطأ', 'كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية.', [{ text: 'موافق' }]);
+        return;
+    }
+    if (newPasswordInput.length < 6) { // Supabase default minimum password length is 6
+        showModal('خطأ', 'يجب أن تتكون كلمة المرور الجديدة من 6 أحرف على الأقل.', [{ text: 'موافق' }]);
+        return;
+    }
+
+    showLoading();
+    try {
+        // Update password using Supabase Auth
+        const { error } = await window.supabase.auth.updateUser({
+            password: newPasswordInput
+        });
+
+        if (error) {
+            console.error("Error updating password:", error);
+            showModal('خطأ', `فشل تحديث كلمة المرور: ${error.message}`, [{ text: 'موافق', onClick: () => {
+                document.getElementById('change-password-modal').classList.add('hidden');
+            }}]);
+        } else {
+            showModal('نجاح', 'تم تحديث كلمة المرور بنجاح!', [{ text: 'موافق', onClick: async () => {
+                document.getElementById('change-password-modal').classList.add('hidden');
+                // No need to fetchUsers here as auth state change listener will handle it
+            }}]);
+        }
+    } catch (e) {
+        console.error("Unexpected error updating password:", e);
+        showModal('خطأ غير متوقع', `حدث خطأ غير متوقع أثناء تحديث كلمة المرور: ${e.message}`, [{ text: 'موافق' }]);
+    } finally {
+        hideLoading();
+    }
+});
+
+// --- Back to Top Button Functions ---
+const backToTopBtn = document.getElementById("back-to-top-btn");
+
+// When the user scrolls down 200px from the top of the document, show the button
+window.onscroll = function() {scrollFunction()};
+
+function scrollFunction() {
+    if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+        backToTopBtn.style.display = "block";
+    } else {
+        backToTopBtn.style.display = "none";
+    }
+}
+
+// When the user clicks on the button, scroll to the top of the document
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth' // For smooth scrolling
+    });
+}
+
+// --- Initial Setup on Page Load ---
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // --- Supabase Initialization ---
+        const supabaseUrl = 'https://oinueaolypaewfwobyrv.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pbnVlYW9seXBhZXdmd29ieXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTQwMTAsImV4cCI6MjA2ODQzMDAxMH0.pSUrXHq5F3WiuBovmU-FW0aPs22BLrPDWXoKIKMEpyE';
+        window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        setupSupabaseListeners(); // Setup listeners after Supabase client is created
+
+        showLoading(); // Show loading indicator on initial page load
+        // Check for existing session from Supabase Auth
+        const { data: { session }, error } = await window.supabase.auth.getSession();
+        
+        if (error) {
+            console.error("Error getting Supabase session on load:", error);
+            showModal('خطأ في التحميل', `فشل جلب جلسة المستخدم: ${error.message}`, [{ text: 'موافق' }]);
+            showSection('login-section'); // Fallback to login if session fetch fails
+            return; // Exit early if session fetch fails
+        }
+
+        if (session) {
+            window.loggedInUser = session.user.email;
+            window.loggedInRole = deriveRoleFromEmail(session.user.email);
+
+            // Try to fetch role from user_profiles table
+            const { data: userProfile, error: profileError } = await window.supabase
+                .from('user_profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profileError || !userProfile) {
+                console.warn("User profile not found or error fetching on load, creating/using derived role:", profileError);
+                const { error: insertProfileError } = await window.supabase.from('user_profiles').insert({
+                    id: session.user.id,
+                    username: session.user.email,
+                    role: window.loggedInRole
+                });
+                if (insertProfileError) {
+                    console.error("Error inserting user profile on load:", insertProfileError);
+                }
+            } else {
+                window.loggedInRole = userProfile.role;
+            }
+
+            sessionStorage.setItem('loggedInUser', JSON.stringify({ username: window.loggedInUser, role: window.loggedInRole }));
+            await fetchAllData(); // Fetch all data after successful session check
+            showSection('dashboard-section');
+        } else {
+            showSection('login-section');
+        }
+    } catch (e) {
+        console.error("Critical error during initial page load setup:", e);
+        showModal('خطأ فادح', `حدث خطأ غير متوقع أثناء تحميل التطبيق: ${e.message}. يرجى المحاولة مرة أخرى.`, [{ text: 'موافق' }]);
+        showSection('login-section'); // Ensure something is shown even on critical error
+    } finally {
+        hideLoading(); // Ensure loading is hidden even on error
+    }
+});
+
+    </script>
 </body>
 </html>

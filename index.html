@@ -17,142 +17,185 @@
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- Custom CSS (Merged from style.css) - Content is extracted to a separate block -->
-    <!-- Custom JavaScript (Main Application Logic) - Content is extracted to a separate block -->
+    <style>
+       /* Custom CSS (Merged from style.css) */
+       body {
+           font-family: 'Cairo', sans-serif;
+           background-color: #f3f4f6; /* Light gray background */
+       }
+
+       /* Loading Spinner */
+       .loader {
+           border-top-color: #3498db;
+           animation: spin 1s linear infinite;
+       }
+
+       @keyframes spin {
+           0% { transform: rotate(0deg); }
+           100% { transform: rotate(360deg); }
+       }
+
+       /* Custom styles for tabs */
+       .tab-button {
+           @apply text-gray-700 hover:bg-gray-100 transition duration-200;
+       }
+
+       .tab-button.active-tab {
+           @apply text-blue-700 bg-blue-100 hover:bg-blue-200;
+       }
+
+       /* Table row hover effect */
+       tbody tr:hover {
+           @apply bg-gray-50;
+       }
+
+       /* Table cell padding and alignment */
+       th, td {
+           @apply py-3 px-6;
+       }
+
+       /* Right alignment for Arabic text in tables */
+       th, td {
+           text-align: right;
+       }
+
+       /* Center alignment for actions column */
+       th:last-child, td:last-child {
+           text-align: center;
+       }
+
+       /* New: Styles for loading overlay */
+       #loading-overlay {
+           transition: opacity 0.3s ease-in-out;
+       }
+
+       /* Styles for Back to Top button */
+       #back-to-top-btn {
+           display: none; /* Hidden by default */
+           position: fixed;
+           bottom: 20px;
+           left: 20px; /* Position on the left for RTL layout */
+           z-index: 99;
+           font-size: 18px;
+           border: none;
+           outline: none;
+           background-color: #4f46e5; /* Indigo-600 */
+           color: white;
+           cursor: pointer;
+           padding: 15px;
+           border-radius: 50%;
+           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+           transition: background-color 0.3s, transform 0.3s;
+       }
+
+       #back-to-top-btn:hover {
+           background-color: #4338ca; /* Indigo-700 */
+           transform: translateY(-2px);
+       }
+
+       /* Custom styles for tables on small screens */
+       @media (max-width: 768px) {
+           .responsive-table table, .responsive-table thead, .responsive-table tbody, .responsive-table th, .responsive-table td, .responsive-table tr {
+               display: block;
+           }
+           .responsive-table thead tr {
+               position: absolute;
+               top: -9999px;
+               left: -9999px;
+           }
+           .responsive-table tr {
+               border: 1px solid #ccc;
+               margin-bottom: 0.625em;
+               border-radius: 0.5rem;
+               overflow: hidden;
+           }
+           .responsive-table td {
+               border: none;
+               border-bottom: 1px solid #eee;
+               position: relative;
+               padding-left: 50%;
+               text-align: right;
+               white-space: normal;
+           }
+           .responsive-table td:before {
+               position: absolute;
+               top: 0.5rem;
+               right: 6px;
+               width: 45%;
+               padding-left: 10px;
+               white-space: nowrap;
+               font-weight: bold;
+               content: attr(data-label);
+               text-align: right;
+           }
+           .responsive-table td:last-child {
+               border-bottom: 0;
+           }
+       }
+       .footer {
+           text-align: center;
+           padding: 1rem;
+           margin-top: 2rem;
+           color: #6b7280;
+           font-size: 0.875rem;
+       }
+       /* Ensure custom-modal is always on top */
+       #custom-modal {
+           z-index: 70; /* Higher than other modals */
+       }
+       #change-password-modal, #code-input-modal, #maintenance-form-modal, #pending-code-input-modal, #pending-request-form-modal, #execute-repair-modal, #add-machine-modal {
+           z-index: 60; /* Standard modal z-index */
+       }
+    
+       /* تحسينات بصرية للإحصائيات */
+       .border-l-4 {
+           border-left-width: 4px;
+       }
+
+       #pending-requests-count {
+           transition: all 0.3s ease;
+           font-size: 2.5rem;
+       }
+
+       #pending-update-time {
+           font-family: monospace;
+       }
+
+       /* Pagination Styles */
+       .pagination {
+           display: flex;
+           justify-content: center;
+           margin-top: 1rem;
+           direction: ltr; /* Ensure pagination numbers are LTR */
+       }
+
+       .pagination button {
+           margin: 0 0.25rem;
+           padding: 0.5rem 0.75rem;
+           border: 1px solid #d1d5db;
+           border-radius: 0.375rem;
+           background-color: white;
+           color: #4b5563;
+           cursor: pointer;
+       }
+
+       .pagination button:hover {
+           background-color: #f3f4f6;
+       }
+
+       .pagination button.active {
+           background-color: #3b82f6;
+           color: white;
+           border-color: #3b82f6;
+       }
+
+       .pagination button:disabled {
+           opacity: 0.5;
+           cursor: not-allowed;
+       }
+    </style>
 </head>
-<style>
-   /* Custom CSS (Merged from style.css) */
-body {
-    font-family: 'Cairo', sans-serif;
-    background-color: #f3f4f6; /* Light gray background */
-}
-
-/* Loading Spinner */
-.loader {
-    border-top-color: #3498db;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Custom styles for tabs */
-.tab-button {
-    @apply text-gray-700 hover:bg-gray-100 transition duration-200;
-}
-
-.tab-button.active-tab {
-    @apply text-blue-700 bg-blue-100 hover:bg-blue-200;
-}
-
-/* Table row hover effect */
-tbody tr:hover {
-    @apply bg-gray-50;
-}
-
-/* Table cell padding and alignment */
-th, td {
-    @apply py-3 px-6;
-}
-
-/* Right alignment for Arabic text in tables */
-th, td {
-    text-align: right;
-}
-
-/* Center alignment for actions column */
-th:last-child, td:last-child {
-    text-align: center;
-}
-
-/* New: Styles for loading overlay */
-#loading-overlay {
-    transition: opacity 0.3s ease-in-out;
-}
-
-/* Styles for Back to Top button */
-#back-to-top-btn {
-    display: none; /* Hidden by default */
-    position: fixed;
-    bottom: 20px;
-    left: 20px; /* Position on the left for RTL layout */
-    z-index: 99;
-    font-size: 18px;
-    border: none;
-    outline: none;
-    background-color: #4f46e5; /* Indigo-600 */
-    color: white;
-    cursor: pointer;
-    padding: 15px;
-    border-radius: 50%;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: background-color 0.3s, transform 0.3s;
-}
-
-#back-to-top-btn:hover {
-    background-color: #4338ca; /* Indigo-700 */
-    transform: translateY(-2px);
-}
-
-/* Custom styles for tables on small screens */
-@media (max-width: 768px) {
-    .responsive-table table, .responsive-table thead, .responsive-table tbody, .responsive-table th, .responsive-table td, .responsive-table tr {
-        display: block;
-    }
-    .responsive-table thead tr {
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-    }
-    .responsive-table tr {
-        border: 1px solid #ccc;
-        margin-bottom: 0.625em;
-        border-radius: 0.5rem;
-        overflow: hidden;
-    }
-    .responsive-table td {
-        border: none;
-        border-bottom: 1px solid #eee;
-        position: relative;
-        padding-left: 50%;
-        text-align: right;
-        white-space: normal;
-    }
-    .responsive-table td:before {
-        position: absolute;
-        top: 0.5rem;
-        right: 6px;
-        width: 45%;
-        padding-left: 10px;
-        white-space: nowrap;
-        font-weight: bold;
-        content: attr(data-label);
-        text-align: right;
-    }
-    .responsive-table td:last-child {
-        border-bottom: 0;
-    }
-}
-.footer {
-    text-align: center;
-    padding: 1rem;
-    margin-top: 2rem;
-    color: #6b7280;
-    font-size: 0.875rem;
-}
-/* Ensure custom-modal is always on top */
-#custom-modal {
-    z-index: 70; /* Higher than other modals */
-}
-#change-password-modal, #code-input-modal, #maintenance-form-modal, #pending-code-input-modal, #pending-request-form-modal, #execute-repair-modal, #add-machine-modal {
-    z-index: 60; /* Standard modal z-index */
-}
- 
-</style>
 <body class="min-h-screen bg-gray-100 font-cairo text-right">
-
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
         <div class="flex flex-col items-center text-white">
@@ -598,6 +641,32 @@ th:last-child, td:last-child {
                 <p id="logged-in-user-info" class="text-gray-600 text-center text-sm mb-8">
                     <!-- User info will be displayed here -->
                 </p>
+     <!-- إضافة قسم الإحصائيات -->
+<div class="mt-8 w-full">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">الإحصائيات الفورية</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- بطاقة طلبات الإصلاح المعلقة -->
+        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">طلبات الإصلاح المعلقة</p>
+                    <p id="pending-requests-count" class="text-3xl font-bold mt-2">0</p>
+                </div>
+                <div class="bg-yellow-100 p-3 rounded-full">
+                    <i class="fas fa-clipboard-list text-yellow-600 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>آخر تحديث:</span>
+                    <span id="pending-update-time">--:--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- يمكن إضافة بطاقات إحصائية أخرى هنا -->
+    </div>
+</div>          
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center border border-gray-200" onclick="showSection('machine-log-section')">
                         <span class="text-5xl mb-4"><i class="fas fa-cogs"></i></span>
@@ -642,66 +711,71 @@ th:last-child, td:last-child {
             </div>
         </div>
 
-        <!-- Machine Log Section -->
-        <div id="machine-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-6xl hidden">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل الآلات</h2>
+    <!-- ... -->
 
-            <div id="machine-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span id="machine-message-text" class="block sm:inline"></span>
-            </div>
+    <!-- Machine Log Section -->
+    <div id="machine-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-6xl hidden">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل الآلات</h2>
 
-            <!-- Add Machine Button (replaces the inline form) -->
-            <div class="flex justify-center mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-                <button id="add-machine-btn" onclick="showAddMachineModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    <i class="fas fa-plus ml-2 rtl:mr-2"></i> إضافة آلة جديدة
-                </button>
-            </div>
-            <!-- End Add Machine Button -->
-
-            <div class="mb-6">
-                <label for="search-machine" class="block text-gray-700 text-sm font-bold mb-2">بحث في سجل الآلات:</label>
-                <input type="text" id="search-machine" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث حسب الموقع، الجزء، الاسم، الكود، النوع...">
-            </div>
-
-            <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
-                <button onclick="exportMachinesToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> تصدير Excel
-                </button>
-            </div>
-
-            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">موقع العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">النوع</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الرقم التسلسلي</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المرجع</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider machine-actions-header">الإجراءات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">سجل الصيانة</th>
-                        </tr>
-                    </thead>
-                    <tbody id="machine-table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Machine rows will be inserted here by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex justify-center mt-8">
-                <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
-                </button>
-            </div>
-            <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+        <div id="machine-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span id="machine-message-text" class="block sm:inline"></span>
         </div>
 
-        <!-- Maintenance Log Section -->
-        <div id="maintenance-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل عمليات الصيانة</h2>
+        <!-- Add Machine Button -->
+        <div class="flex justify-center mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <button id="add-machine-btn" onclick="showAddMachineModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                <i class="fas fa-plus ml-2 rtl:mr-2"></i> إضافة آلة جديدة
+            </button>
+        </div>
 
-            <div id="maintenance-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <div class="mb-6">
+            <label for="search-machine" class="block text-gray-700 text-sm font-bold mb-2">بحث في سجل الآلات:</label>
+            <input type="text" id="search-machine" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" placeholder="ابحث حسب الموقع، الجزء، الاسم، الكود، النوع...">
+        </div>
+
+        <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
+            <button onclick="exportMachinesToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> تصدير Excel
+            </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">موقع العمل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الآلة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">النوع</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الرقم التسلسلي</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المرجع</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider machine-actions-header">الإجراءات</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">سجل الصيانة</th>
+                    </tr>
+                </thead>
+                <tbody id="machine-table-body" class="bg-white divide-y divide-gray-200">
+                    <!-- Machine rows will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls for Machine Table -->
+        <div id="machine-pagination" class="pagination mt-4"></div>
+
+        <div class="flex justify-center mt-8">
+            <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
+            </button>
+        </div>
+        <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+    </div>
+
+    <!-- Maintenance Log Section -->
+    <div id="maintenance-log-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل عمليات الصيانة</h2>
+
+       <div id="maintenance-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
                 <span id="maintenance-message-text" class="block sm:inline"></span>
             </div>
 
@@ -750,23 +824,29 @@ th:last-child, td:last-child {
             </div>
 
             <div class="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <h3 class="text-lg font-semibold mb-2 text-gray-700">تصدير سجل الصيانة حسب الفترة الزمنية:</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label for="export-start-date" class="block text-gray-700 text-sm font-bold mb-2">تاريخ البدء:</label>
-                        <input type="date" id="export-start-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label for="export-end-date" class="block text-gray-700 text-sm font-bold mb-2">تاريخ الانتهاء:</label>
-                        <input type="date" id="export-end-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
-                    </div>
-                    <div class="flex items-end space-x-2 rtl:space-x-reverse">
-                        <button onclick="exportMaintenanceToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 w-full">
-                            <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> Excel
-                        </button>
-                    </div>
-                </div>
+        <h3 class="text-lg font-semibold mb-2 text-gray-700">تصدير سجل الصيانة حسب الفترة الزمنية:</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label for="export-start-date" class="block text-gray-700 text-sm font-bold mb-2">تاريخ البدء:</label>
+                <input type="date" id="export-start-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
             </div>
+            <div>
+                <label for="export-end-date" class="block text-gray-700 text-sm font-bold mb-2">تاريخ الانتهاء:</label>
+                <input type="date" id="export-end-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+            </div>
+            <div class="flex items-end space-x-2 rtl:space-x-reverse">
+                <button onclick="exportMaintenanceToExcel()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 w-full flex items-center justify-center">
+                    <i class="fas fa-file-excel ml-2 rtl:mr-2"></i> تصدير Excel
+                </button>
+            </div>
+        </div>
+        <div class="mt-4 text-center">
+            <p id="export-status" class="text-sm text-gray-500 hidden">
+                <i class="fas fa-spinner fa-spin mr-2"></i> جاري التصدير...
+            </p>
+        </div>
+    </div>
+       
 
             <div class="flex justify-end mb-4 space-x-2 rtl:space-x-reverse">
                 <button onclick="applyMaintenanceFilters()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
@@ -777,41 +857,45 @@ th:last-child, td:last-child {
                 </button>
             </div>
 
-            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التاريخ</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">موقع العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قسم الصيانة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العمل المنفذ</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قطع الغيار</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider maintenance-actions-header">الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="maintenance-table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Maintenance record rows will be inserted here by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex justify-center mt-8">
-                <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
-                </button>
-            </div>
-            <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+        <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التاريخ</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">موقع العمل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الآلة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قسم الصيانة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العمل المنفذ</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قطع الغيار</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider maintenance-actions-header">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="maintenance-table-body" class="bg-white divide-y divide-gray-200">
+                    <!-- Maintenance record rows will be inserted here by JavaScript -->
+                </tbody>
+            </table>
         </div>
 
-        <!-- New: Pending Repair Requests Section -->
-        <div id="pending-requests-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل طلبات الإصلاح المعلقة</h2>
+        <!-- Pagination Controls for Maintenance Table -->
+        <div id="maintenance-pagination" class="pagination mt-4"></div>
 
-            <div id="pending-requests-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <div class="flex justify-center mt-8">
+            <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
+            </button>
+        </div>
+        <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+    </div>
+
+    <!-- Pending Repair Requests Section -->
+    <div id="pending-requests-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-5xl hidden">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">سجل طلبات الإصلاح المعلقة</h2>
+
+        <div id="pending-requests-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
                 <span id="pending-requests-message-text" class="block sm:inline"></span>
             </div>
 
@@ -870,37 +954,41 @@ th:last-child, td:last-child {
                 </button>
             </div>
 
-            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التاريخ</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الوقت</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مكان العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العطل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نوع العطل</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider pending-actions-header">الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pending-requests-table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Pending repair request rows will be inserted here by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex justify-center mt-8">
-                <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
-                    <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
-                </button>
-            </div>
-            <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+
+        <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200 responsive-table">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التاريخ</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الوقت</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مكان العمل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">جزء العمل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الآلة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">كود الآلة</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العطل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نوع العطل</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مدخل البيانات</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider pending-actions-header">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="pending-requests-table-body" class="bg-white divide-y divide-gray-200">
+                    <!-- Pending repair request rows will be inserted here by JavaScript -->
+                </tbody>
+            </table>
         </div>
 
-        <!-- Account Management Section -->
+        <!-- Pagination Controls for Pending Requests Table -->
+        <div id="pending-pagination" class="pagination mt-4"></div>
+
+        <div class="flex justify-center mt-8">
+            <button onclick="showSection('dashboard-section')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1">
+                <i class="fas fa-arrow-right-from-bracket ml-2 rtl:mr-2"></i> العودة إلى لوحة التحكم
+            </button>
+        </div>
+        <div class="footer">powerd by Eng.Mohamad Aldakak</div>
+    </div>
+ <!-- Account Management Section -->
         <div id="account-management-section" class="p-6 bg-white rounded-xl shadow-lg m-4 w-full max-w-3xl hidden">
             <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">إدارة الحسابات</h2>
 
@@ -959,26 +1047,40 @@ th:last-child, td:last-child {
     <button onclick="scrollToTop()" id="back-to-top-btn" title="العودة للأعلى">
         <i class="fas fa-arrow-up"></i>
     </button>
+
     <script>
         // Main Application Logic (JavaScript)
-// --- Debugging: Confirm script loading ---
-console.log("Script loaded successfully!");
+        // --- Debugging: Confirm script loading ---
+        console.log("Script loaded successfully!");
 
-// Global data storage
-window.machines = [];
-window.maintenanceRecords = [];
-window.pendingRepairRequests = []; // New: Global array for pending repair requests
-window.users = []; 
-window.loggedInUser = null; // Stores email
-window.loggedInRole = null; // Stores derived role
-window.currentPendingRequestToExecute = null; // To store the pending request being executed
+        // Global data storage
+        window.machines = [];
+        window.maintenanceRecords = [];
+        window.pendingRepairRequests = [];
+        window.users = []; 
+        window.loggedInUser = null;
+        window.loggedInRole = null;
+        window.currentPendingRequestToExecute = null;
 
-// Global variables for tracking the ID of the item being edited in modals
-window.editingMachineId = null;
-window.editingMaintenanceRecordId = null;
-window.editingPendingRequestId = null;
+        // Global variables for tracking the ID of the item being edited in modals
+        window.editingMachineId = null;
+        window.editingMaintenanceRecordId = null;
+        window.editingPendingRequestId = null;
 
-/**
+        // Pagination settings
+        window.pageSizeMachine = 5;
+        window.currentPageMachine = 1;
+        window.filteredMachines = [];
+
+        window.pageSizeMaintenance = 5;
+        window.currentPageMaintenance = 1;
+        window.filteredMaintenanceRecords = [];
+
+        window.pageSizePending = 5;
+        window.currentPagePending = 1;
+        window.filteredPendingRequests = [];
+
+      /**
  * Derives a user's role based on their email domain or username prefix.
  * @param {string} email - The user's email address.
  * @returns {string} The derived role ('admin', 'maintenance_manager', 'operation_manager', 'user').
@@ -1150,6 +1252,13 @@ function showSection(sectionId) {
             exportButton.classList.add('hidden');
             importButton.classList.add('hidden');
         }
+        
+        setTimeout(() => {
+            const event = new Event('show');
+            document.getElementById('dashboard-section').dispatchEvent(event);
+        }, 100);
+    
+
     }
 }
 
@@ -1887,12 +1996,13 @@ document.getElementById('search-machine').addEventListener('input', function(eve
  * @param {string} machineCode - The machine code to filter maintenance records by.
  */
 function viewMachineMaintenance(machineCode) {
+    showSection('maintenance-log-section');
     // Reset all filters first
     resetMaintenanceFilters();
     // Apply machine code filter
     document.getElementById('search-maintenance-keyword').value = machineCode;
     applyMaintenanceFilters();
-    showSection('maintenance-log-section');
+    
     showMessage('maintenance-message', `عرض سجلات الصيانة للآلة ذات الكود: ${machineCode}`, 'info');
 }
 
@@ -2979,30 +3089,115 @@ function getFilteredMaintenanceRecordsForExport() {
 /**
  * Exports filtered maintenance data to an Excel file.
  */
-function exportMaintenanceToExcel() {
-    const recordsToExport = getFilteredMaintenanceRecordsForExport();
-    if (recordsToExport.length === 0) {
-        showModal('لا توجد بيانات', 'لا توجد سجلات صيانة لتصديرها في الفترة المحددة أو بناءً على البحث الحالي.', [{ text: 'موافق' }]);
-        return;
+function getFilteredMaintenanceRecordsForExport() {
+    const keyword = document.getElementById('search-maintenance-keyword').value.toLowerCase();
+    const location = document.getElementById('filter-maintenance-location').value;
+    const machine = document.getElementById('filter-maintenance-machine').value;
+    const department = document.getElementById('filter-maintenance-department').value;
+    
+    const startDate = document.getElementById('export-start-date').value;
+    const endDate = document.getElementById('export-end-date').value;
+    
+    let filteredRecords = [...window.maintenanceRecords];
+    
+    // تطبيق الفلاتر
+    filteredRecords = filteredRecords.filter(record => {
+        const matchesKeyword = Object.values(record).some(val => 
+            val && val.toString().toLowerCase().includes(keyword)
+        );
+        const matchesLocation = location ? record.workLocation === location : true;
+        const matchesMachine = machine ? record.machineName === machine : true;
+        const matchesDepartment = department ? record.maintenanceDepartment === department : true;
+        
+        return matchesKeyword && matchesLocation && matchesMachine && matchesDepartment;
+    });
+    
+    // تطبيق فلترة التاريخ
+    if (startDate || endDate) {
+        filteredRecords = filteredRecords.filter(record => {
+            const recordDate = new Date(record.date);
+            const start = startDate ? new Date(startDate) : null;
+            if(start) start.setHours(0,0,0,0); // ضبط لبداية اليوم
+            const end = endDate ? new Date(endDate) : null;
+            if(end) end.setHours(23,59,59,999); // ضبط لنهاية اليوم
+            
+            if (start && end) return recordDate >= start && recordDate <= end;
+            if (start) return recordDate >= start;
+            if (end) return recordDate <= end;
+            return true;
+        });
     }
-    const dataToExport = recordsToExport.map(r => ({
-        'التاريخ': r.date, 
-        'موقع العمل': r.workLocation, 
-        'جزء العمل': r.workPart, 
-        'الآلة': r.machineName, 
-        'كود الآلة': r.machineCode, 
-        'قسم الصيانة': r.maintenanceDepartment,
-        'العمل المنفذ': r.performedWork, 
-        'قطع الغيار المستخدمة': r.sparePartsUsed, 
-        'ملاحظات': r.notes,
-        'مدخل البيانات': r.dataEntryUser
-    }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "سجل الصيانة");
-    XLSX.writeFile(wb, "سجل_الصيانة.xlsx");
-    showModal('نجاح', 'تم تصدير سجل الصيانة بنجاح!', [{ text: 'موافق' }]);
+    
+    return filteredRecords;
 }
+
+/**
+ * يصدر سجل الصيانة إلى Excel
+ */
+function exportMaintenanceToExcel() {
+    const exportStatus = document.getElementById('export-status');
+    exportStatus.classList.remove('hidden');
+    
+    setTimeout(async () => {
+        try {
+            const recordsToExport = getFilteredMaintenanceRecordsForExport();
+            
+            if (recordsToExport.length === 0) {
+                showModal('لا توجد بيانات', 'لا توجد سجلات صيانة لتصديرها في الفترة المحددة أو بناءً على البحث الحالي.', [{ text: 'موافق' }]);
+                exportStatus.classList.add('hidden');
+                return;
+            }
+            
+            // تحضير البيانات للتصدير
+            const dataToExport = recordsToExport.map(r => ({
+                'التاريخ': r.date, 
+                'موقع العمل': r.workLocation, 
+                'جزء العمل': r.workPart, 
+                'الآلة': r.machineName, 
+                'كود الآلة': r.machineCode, 
+                'قسم الصيانة': r.maintenanceDepartment,
+                'العمل المنفذ': r.performedWork, 
+                'قطع الغيار المستخدمة': r.sparePartsUsed, 
+                'ملاحظات': r.notes,
+                'مدخل البيانات': r.dataEntryUser
+            }));
+            
+            // إنشاء ورقة العمل
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            
+            // ضبط عرض الأعمدة تلقائياً
+            const wscols = [
+                {wch: 10}, // التاريخ
+                {wch: 20}, // موقع العمل
+                {wch: 20}, // جزء العمل
+                {wch: 20}, // الآلة
+                {wch: 15}, // كود الآلة
+                {wch: 15}, // قسم الصيانة
+                {wch: 50}, // العمل المنفذ
+                {wch: 30}, // قطع الغيار
+                {wch: 30}, // ملاحظات
+                {wch: 15}  // مدخل البيانات
+            ];
+            ws['!cols'] = wscols;
+            
+            // إنشاء ملف Excel
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "سجل الصيانة");
+            
+            // حفظ الملف
+            XLSX.writeFile(wb, `سجل_الصيانة_${new Date().toISOString().slice(0,10)}.xlsx`);
+            
+            showModal('نجاح', `تم تصدير ${recordsToExport.length} سجلات بنجاح!`, [{ text: 'موافق' }]);
+            
+        } catch (error) {
+            console.error("حدث خطأ أثناء التصدير:", error);
+            showModal('خطأ في التصدير', `فشل تصدير الملف: ${error.message}`, [{text: 'موافق'}]);
+        } finally {
+            exportStatus.classList.add('hidden');
+        }
+    }, 500);
+}
+
 
 /**
  * Exports pending repair request data to an Excel file.
@@ -3365,7 +3560,369 @@ function scrollToTop() {
     });
 }
 
-// --- Initial Setup on Page Load ---
+
+        /**
+         * Renders the machine table with filtered or all machines.
+         * Adjusts action button visibility based on user role.
+         * @param {Array<Object>} [filteredMachines=window.machines] - The array of machines to display.
+         */
+        function renderMachineTable(filteredMachines = window.machines) {
+            // حفظ البيانات المصفاة للاستخدام في التقسيم إلى صفحات
+            window.filteredMachines = filteredMachines;
+            
+            const tableBody = document.getElementById('machine-table-body');
+            tableBody.innerHTML = '';
+            const actionsHeader = document.querySelector('.machine-actions-header');
+            
+            // Show/hide actions header based on roles that can manage machines
+            const canManageMachines = (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager' || window.loggedInRole === 'operation_manager');
+            if (canManageMachines) {
+                actionsHeader.classList.remove('hidden');
+            } else {
+                actionsHeader.classList.add('hidden');
+            }
+
+            if (filteredMachines.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد آلات لعرضها.</td></tr>`;
+                document.getElementById('machine-pagination').innerHTML = '';
+                return;
+            }
+
+            // حساب عدد الصفحات
+            const totalPages = Math.ceil(filteredMachines.length / window.pageSizeMachine);
+            
+            // التأكد من أن الصفحة الحالية ضمن النطاق الصحيح
+            if (window.currentPageMachine > totalPages) {
+                window.currentPageMachine = totalPages;
+            }
+            if (window.currentPageMachine < 1) {
+                window.currentPageMachine = 1;
+            }
+            
+            // حساب البيانات للصفحة الحالية
+            const startIndex = (window.currentPageMachine - 1) * window.pageSizeMachine;
+            const endIndex = Math.min(startIndex + window.pageSizeMachine, filteredMachines.length);
+            const currentPageData = filteredMachines.slice(startIndex, endIndex);
+
+            currentPageData.forEach(machine => {
+                const row = tableBody.insertRow();
+                row.setAttribute('data-id', machine.id);
+                let actionsHtml = '';
+                if (canManageMachines) { // Admin, Maintenance Manager, Operation Manager can edit/delete machines
+                    actionsHtml = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                            <button onclick="openEditMachineModal('${machine.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0" title="تعديل"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteMachine('${machine.id}', '${machine.machineCode}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs" title="حذف"><i class="fas fa-trash-alt"></i></button>
+                        </td>`;
+                } else {
+                    actionsHtml = `<td class="hidden"></td>`; // Hide actions column for other roles
+                }
+                
+                const referenceHtml = machine.url 
+                    ? `<a href="${machine.url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">المرجع</a>`
+                    : 'لا يوجد مرجع';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${machine.workLocation}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${machine.workPart}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="اسم الآلة">${machine.machineName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${machine.machineCode}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="النوع">${machine.type || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الرقم التسلسلي">${machine.serial_number || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="المرجع">${referenceHtml}</td>
+                    ${actionsHtml}
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="سجل الصيانة">
+                        <button onclick="viewMachineMaintenance('${machine.machineCode}')" class="bg-indigo-500 hover:bg-indigo-600 text-white py-1 px-3 rounded-lg text-xs" title="عرض سجل الصيانة"><i class="fas fa-clipboard-list"></i></button>
+                    </td>`;
+            });
+
+            // إنشاء عناصر واجهة التقسيم إلى صفحات
+            renderPagination('machine-pagination', window.currentPageMachine, totalPages, 'changeMachinePage');
+        }
+
+        /**
+         * Renders the maintenance table with filtered or all records.
+         * Adjusts action button visibility based on user role.
+         * @param {Array<Object>} [filteredRecords=window.maintenanceRecords] - The array of maintenance records to display.
+         */
+        function renderMaintenanceTable(filteredRecords = window.maintenanceRecords) {
+            // حفظ البيانات المصفاة للاستخدام في التقسيم إلى صفحات
+            window.filteredMaintenanceRecords = filteredRecords;
+            
+            const tableBody = document.getElementById('maintenance-table-body');
+            tableBody.innerHTML = '';
+            const actionsHeader = document.querySelector('#maintenance-log-section .maintenance-actions-header');
+            
+            // Only admin and maintenance_manager can manage maintenance records (add/edit/delete)
+            const canManageMaintenance = (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager');
+            if (canManageMaintenance) {
+                actionsHeader.classList.remove('hidden');
+            } else {
+                actionsHeader.classList.add('hidden');
+            }
+
+            if (filteredRecords.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد سجلات صيانة لعرضها.</td></tr>`;
+                document.getElementById('maintenance-pagination').innerHTML = '';
+                return;
+            }
+
+            // حساب عدد الصفحات
+            const totalPages = Math.ceil(filteredRecords.length / window.pageSizeMaintenance);
+            
+            // التأكد من أن الصفحة الحالية ضمن النطاق الصحيح
+            if (window.currentPageMaintenance > totalPages) {
+                window.currentPageMaintenance = totalPages;
+            }
+            if (window.currentPageMaintenance < 1) {
+                window.currentPageMaintenance = 1;
+            }
+            
+            // حساب البيانات للصفحة الحالية
+            const startIndex = (window.currentPageMaintenance - 1) * window.pageSizeMaintenance;
+            const endIndex = Math.min(startIndex + window.pageSizeMaintenance, filteredRecords.length);
+            const currentPageData = filteredRecords.slice(startIndex, endIndex);
+
+            currentPageData.forEach(record => {
+                const row = tableBody.insertRow();
+                row.setAttribute('data-id', record.id);
+                row.classList.add('hover:bg-gray-50');
+                let actionsHtml = '';
+                if (canManageMaintenance) { // Admin, Maintenance Manager can edit/delete maintenance records
+                    // Check if the logged-in user is the data entry user OR an admin
+                    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+                    const canEditOrDelete = isDataEntryUser || window.loggedInRole === 'admin';
+
+                    actionsHtml = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                            <button onclick="openEditMaintenanceRecordModal('${record.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0 ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="تعديل" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteMaintenanceRecord('${record.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="حذف" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>
+                        </td>`;
+                } else {
+                    actionsHtml = `<td class="hidden"></td>`; // Hide actions column for other roles (including operation_manager)
+                }
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="موقع العمل">${record.workLocation}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${record.workPart}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الآلة">${record.machineName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${record.machineCode}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="قسم الصيانة">${record.maintenanceDepartment || ''}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900" data-label="العمل المنفذ"><div class="max-w-xs truncate" title="${record.performedWork}">${record.performedWork}</div></td>
+                    <td class="px-6 py-4 text-sm text-gray-900" data-label="قطع الغيار"><div class="max-w-xs truncate" title="${record.sparePartsUsed}">${record.sparePartsUsed}</div></td>
+                    <td class="px-6 py-4 text-sm text-gray-900" data-label="ملاحظات"><div class="max-w-xs truncate" title="${record.notes}">${record.notes}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td>
+                    ${actionsHtml}`;
+            });
+
+            // إنشاء عناصر واجهة التقسيم إلى صفحات
+            renderPagination('maintenance-pagination', window.currentPageMaintenance, totalPages, 'changeMaintenancePage');
+        }
+
+        /**
+         * Renders the pending repair requests table with filtered or all records.
+         * Adjusts action button visibility based on user role.
+         * @param {Array<Object>} [filteredRequests=window.pendingRepairRequests] - The array of pending requests to display.
+         */
+        function renderPendingRequestsTable(filteredRequests = window.pendingRepairRequests) {
+            // حفظ البيانات المصفاة للاستخدام في التقسيم إلى صفحات
+            window.filteredPendingRequests = filteredRequests;
+            
+            const tableBody = document.getElementById('pending-requests-table-body');
+            tableBody.innerHTML = '';
+            const actionsHeader = document.querySelector('#pending-requests-section .pending-actions-header');
+            
+            // Only admin and operation_manager can manage pending requests (add/edit/delete)
+            const canManagePendingRequests = (window.loggedInRole === 'admin' || window.loggedInRole === 'operation_manager');
+            // Only admin and maintenance_manager can execute repair requests
+            const canExecuteRepair = (window.loggedInRole === 'admin' || window.loggedInRole === 'maintenance_manager');
+
+            if (canManagePendingRequests || canExecuteRepair) { // Show header if any action is possible
+                actionsHeader.classList.remove('hidden');
+            } else {
+                actionsHeader.classList.add('hidden');
+            }
+
+            if (filteredRequests.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="12" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">لا توجد طلبات إصلاح معلقة لعرضها.</td></tr>`;
+                document.getElementById('pending-pagination').innerHTML = '';
+                return;
+            }
+
+            // حساب عدد الصفحات
+            const totalPages = Math.ceil(filteredRequests.length / window.pageSizePending);
+            
+            // التأكد من أن الصفحة الحالية ضمن النطاق الصحيح
+            if (window.currentPagePending > totalPages) {
+                window.currentPagePending = totalPages;
+            }
+            if (window.currentPagePending < 1) {
+                window.currentPagePending = 1;
+            }
+            
+            // حساب البيانات للصفحة الحالية
+            const startIndex = (window.currentPagePending - 1) * window.pageSizePending;
+            const endIndex = Math.min(startIndex + window.pageSizePending, filteredRequests.length);
+            const currentPageData = filteredRequests.slice(startIndex, endIndex);
+
+            currentPageData.forEach(record => {
+                const row = tableBody.insertRow();
+                row.setAttribute('data-id', record.id);
+                row.classList.add('hover:bg-gray-50');
+                let actionsHtml = '';
+                if (canManagePendingRequests || canExecuteRepair) { 
+                    // Check if the logged-in user is the data entry user OR an admin for edit/delete
+                    const isDataEntryUser = window.loggedInUser.split('@')[0] === record.dataEntryUser;
+                    const canEditOrDelete = isDataEntryUser || window.loggedInRole === 'admin';
+
+                    actionsHtml = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-label="الإجراءات">
+                            ${(window.loggedInRole === 'admin' || window.loggedInRole === 'operation_manager') ? `
+                                <button onclick="openEditPendingRequestModal('${record.id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0 ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="تعديل" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
+                                <button onclick="deletePendingRepairRequest('${record.id}')" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-xs mr-2 rtl:ml-2 rtl:mr-0 ${canEditOrDelete ? '' : 'opacity-50 cursor-not-allowed'}" title="حذف" ${canEditOrDelete ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>
+                            ` : ''}
+                            ${canExecuteRepair ? `
+                                <button onclick="executeRepairRequestModal('${record.id}')" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded-lg text-xs" title="تنفيذ الإصلاح"><i class="fas fa-play"></i></button>
+                            ` : ''}
+                        </td>`;
+                } else {
+                    actionsHtml = `<td class="hidden"></td>`; // Hide actions column for other roles
+                }
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="التاريخ">${record.date || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الوقت">${record.time || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مكان العمل">${record.workLocation}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="جزء العمل">${record.workPart}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="الآلة">${record.machineName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="كود الآلة">${record.machineCode}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900" data-label="العطل"><div class="max-w-xs truncate" title="${record.fault}">${record.fault}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="نوع العطل">${record.faultType || ''}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900" data-label="ملاحظات"><div class="max-w-xs truncate" title="${record.notes}">${record.notes}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-label="مدخل البيانات">${record.dataEntryUser || ''}</td>
+                    ${actionsHtml}`;
+            });
+
+            // إنشاء عناصر واجهة التقسيم إلى صفحات
+            renderPagination('pending-pagination', window.currentPagePending, totalPages, 'changePendingPage');
+        }
+
+        /**
+         * Renders pagination controls for a table
+         * @param {string} elementId - The ID of the pagination container
+         * @param {number} currentPage - The current page number
+         * @param {number} totalPages - The total number of pages
+         * @param {string} changePageFunction - The name of the function to call when changing pages
+         */
+        function renderPagination(elementId, currentPage, totalPages, changePageFunction) {
+            const paginationContainer = document.getElementById(elementId);
+            
+            if (totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            
+            let paginationHTML = '';
+            
+            // زر الصفحة السابقة
+            paginationHTML += `<button onclick="${changePageFunction}(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </button>`;
+            
+            // أرقام الصفحات
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            
+            // تعديل بداية الصفحات إذا كنا في النهاية
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            // زر الصفحة الأولى
+            if (startPage > 1) {
+                paginationHTML += `<button onclick="${changePageFunction}(1)">1</button>`;
+                if (startPage > 2) {
+                    paginationHTML += `<span class="px-2">...</span>`;
+                }
+            }
+            
+            // أرقام الصفحات المرئية
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `<button onclick="${changePageFunction}(${i})" ${i === currentPage ? 'class="active"' : ''}>${i}</button>`;
+            }
+            
+            // زر الصفحة الأخيرة
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += `<span class="px-2">...</span>`;
+                }
+                paginationHTML += `<button onclick="${changePageFunction}(${totalPages})">${totalPages}</button>`;
+            }
+            
+            // زر الصفحة التالية
+            paginationHTML += `<button onclick="${changePageFunction}(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </button>`;
+            
+            paginationContainer.innerHTML = paginationHTML;
+        }
+
+        /**
+         * Changes the current page for the machine table and re-renders it
+         * @param {number} page - The page number to navigate to
+         */
+        function changeMachinePage(page) {
+            window.currentPageMachine = page;
+            renderMachineTable(window.filteredMachines);
+        }
+
+        /**
+         * Changes the current page for the maintenance table and re-renders it
+         * @param {number} page - The page number to navigate to
+         */
+        function changeMaintenancePage(page) {
+            window.currentPageMaintenance = page;
+            renderMaintenanceTable(window.filteredMaintenanceRecords);
+        }
+
+        /**
+         * Changes the current page for the pending requests table and re-renders it
+         * @param {number} page - The page number to navigate to
+         */
+        function changePendingPage(page) {
+            window.currentPagePending = page;
+            renderPendingRequestsTable(window.filteredPendingRequests);
+        }
+
+        // ... (بقية الدوال الموجودة)
+
+        // عند البحث أو التصفية، نعود إلى الصفحة الأولى
+        document.getElementById('search-machine').addEventListener('input', function(event) {
+            window.currentPageMachine = 1;
+            const searchTerm = event.target.value.toLowerCase();
+            const filteredMachines = window.machines.filter(machine => 
+                machine.workLocation.toLowerCase().includes(searchTerm) ||
+                machine.workPart.toLowerCase().includes(searchTerm) ||
+                machine.machineName.toLowerCase().includes(searchTerm) ||
+                machine.machineCode.toLowerCase().includes(searchTerm) ||
+                (machine.type && machine.type.toLowerCase().includes(searchTerm)) ||
+                (machine.serial_number && machine.serial_number.toLowerCase().includes(searchTerm))
+            );
+            renderMachineTable(filteredMachines);
+        });
+
+        // إضافة مستمعين أحداث مماثلة لجداول الصيانة وطلبات الإصلاح
+        document.getElementById('search-maintenance-keyword').addEventListener('input', function() {
+            window.currentPageMaintenance = 1;
+            applyMaintenanceFilters();
+        });
+
+        document.getElementById('search-pending-keyword').addEventListener('input', function() {
+            window.currentPagePending = 1;
+            applyPendingRequestFilters();
+        });
+
+        // --- Initial Setup on Page Load ---
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         // --- Supabase Initialization ---
@@ -3425,7 +3982,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         hideLoading(); // Ensure loading is hidden even on error
     }
 });
+    // تحديث العداد والإحصائيات
+async function updatePendingStats() {
+    try {
+        const { count, error } = await window.supabase
+            .from('pendingRepairRequests')
+            .select('*', { count: 'exact', head: true });
+        
+        if (error) throw error;
+        
+        document.getElementById('pending-requests-count').textContent = count;
+        
+        // تحديث وقت التحديث
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ar-EG');
+        document.getElementById('pending-update-time').textContent = timeString;
+        
+    } catch (error) {
+        console.error('Error updating pending stats:', error);
+    }
+}
 
+// إعداد تحديث فوري باستخدام Supabase Realtime
+function setupRealTimeStats() {
+    const channel = window.supabase
+        .channel('realtime-pending-requests')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'pendingRepairRequests'
+        }, () => {
+            updatePendingStats();
+        })
+        .subscribe();
+}
+
+// استدعاء الدوال عند تحميل لوحة التحكم
+document.getElementById('dashboard-section').addEventListener('show', async () => {
+    await updatePendingStats();
+    setupRealTimeStats();
+});
     </script>
 </body>
 </html>

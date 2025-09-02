@@ -200,7 +200,7 @@
     <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
         <div class="flex flex-col items-center text-white">
             <i class="fas fa-spinner fa-spin text-5xl mb-4"></i>
-            <p class="text-lg">جاري التحميل...</p>
+            <p class="text-lg">استغفر الله العظيم وأتوب إليه...</p>
         </div>
     </div>
 
@@ -624,8 +624,15 @@
                 </form>
                 <p class="text-gray-600 text-center mt-6 text-sm">
                   بسم الله الرحمن الرحيم
+				  </p>
+				  <p class="text-gray-600 text-center mt-6 text-sm">
                     اللهم صلي على سيدنا محمد وعلى آله وصحبه وسلم
-                    اهلا بكم في نظام ادارة الصيانة في الشركة العامة لتوليد الكهرباء في الناصرية
+					</p>
+                    <p class="text-gray-600 text-center mt-6 text-sm">
+					أهلا بكم في نظام إدارة الصيانة
+					</p>
+					<p class="text-gray-600 text-center mt-6 text-sm">
+					في الشركة العامة لتوليد الكهرباء في الناصرية
                 </p>
                 <div class="footer">powerd by Eng.Mohamad Aldakak</div>
             </div>
@@ -664,6 +671,24 @@
             </div>
         </div>
 
+		<!-- عدد الآلات -->
+        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">عدد الآلات</p>
+                    <p id="machine-count" class="text-3xl font-bold mt-2">0</p>
+                </div>
+                <div class="bg-yellow-100 p-3 rounded-full">
+                    <i class="fas fa-clipboard-list text-yellow-600 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>آخر تحديث:</span>
+                    <span id="machine-update-time">--:--</span>
+                </div>
+            </div>
+        </div>
         <!-- يمكن إضافة بطاقات إحصائية أخرى هنا -->
     </div>
 </div>          
@@ -759,6 +784,18 @@
                 </tbody>
             </table>
         </div>
+         <div class="flex justify-between items-center mb-6">
+    <label for="search-machine" class="block text-gray-700 text-sm font-bold mb-2">بحث في سجل الآلات:</label>
+    <div class="flex items-center">
+        <label for="machine-page-size" class="text-sm text-gray-700 mr-2">عناصر لكل صفحة:</label>
+        <select id="machine-page-size" class="border rounded py-1 px-2">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+        </select>
+    </div>
+</div>
 
         <!-- Pagination Controls for Machine Table -->
         <div id="machine-pagination" class="pagination mt-4"></div>
@@ -879,7 +916,18 @@
                 </tbody>
             </table>
         </div>
-
+         <div class="flex justify-between items-center mb-6">
+    <h3 class="text-lg font-semibold mb-2 text-gray-700">بحث وتصفية سجل الصيانة:</h3>
+    <div class="flex items-center">
+        <label for="maintenance-page-size" class="text-sm text-gray-700 mr-2">عناصر لكل صفحة:</label>
+        <select id="maintenance-page-size" class="border rounded py-1 px-2">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+        </select>
+    </div>
+</div>
         <!-- Pagination Controls for Maintenance Table -->
         <div id="maintenance-pagination" class="pagination mt-4"></div>
 
@@ -978,6 +1026,18 @@
             </table>
         </div>
 
+			<div class="flex justify-between items-center mb-6">
+    <h3 class="text-lg font-semibold mb-2 text-gray-700">بحث وتصفية سجل طلبات الإصلاح:</h3>
+    <div class="flex items-center">
+        <label for="pending-page-size" class="text-sm text-gray-700 mr-2">عناصر لكل صفحة:</label>
+        <select id="pending-page-size" class="border rounded py-1 px-2">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+        </select>
+    </div>
+</div>
         <!-- Pagination Controls for Pending Requests Table -->
         <div id="pending-pagination" class="pagination mt-4"></div>
 
@@ -3895,6 +3955,51 @@ function scrollToTop() {
         }
 
         // ... (بقية الدوال الموجودة)
+// دالة لتحديد عدد العناصر المعروضة في كل صفحة
+function setupPageSizeControls() {
+    // استرجاع التفضيلات من localStorage إن وجدت
+    const savedMachinePageSize = localStorage.getItem('machinePageSize');
+    const savedMaintenancePageSize = localStorage.getItem('maintenancePageSize');
+    const savedPendingPageSize = localStorage.getItem('pendingPageSize');
+    
+    // تعيين القيم الافتراضية إذا لم تكن موجودة
+    if (savedMachinePageSize) {
+        window.pageSizeMachine = parseInt(savedMachinePageSize);
+        document.getElementById('machine-page-size').value = savedMachinePageSize;
+    }
+    
+    if (savedMaintenancePageSize) {
+        window.pageSizeMaintenance = parseInt(savedMaintenancePageSize);
+        document.getElementById('maintenance-page-size').value = savedMaintenancePageSize;
+    }
+    
+    if (savedPendingPageSize) {
+        window.pageSizePending = parseInt(savedPendingPageSize);
+        document.getElementById('pending-page-size').value = savedPendingPageSize;
+    }
+    
+    // إضافة مستمعي الأحداث لعناصر التحكم
+    document.getElementById('machine-page-size').addEventListener('change', function() {
+        window.pageSizeMachine = parseInt(this.value);
+        localStorage.setItem('machinePageSize', this.value);
+        window.currentPageMachine = 1;
+        renderMachineTable(window.filteredMachines);
+    });
+    
+    document.getElementById('maintenance-page-size').addEventListener('change', function() {
+        window.pageSizeMaintenance = parseInt(this.value);
+        localStorage.setItem('maintenancePageSize', this.value);
+        window.currentPageMaintenance = 1;
+        renderMaintenanceTable(window.filteredMaintenanceRecords);
+    });
+    
+    document.getElementById('pending-page-size').addEventListener('change', function() {
+        window.pageSizePending = parseInt(this.value);
+        localStorage.setItem('pendingPageSize', this.value);
+        window.currentPagePending = 1;
+        renderPendingRequestsTable(window.filteredPendingRequests);
+    });
+}
 
         // عند البحث أو التصفية، نعود إلى الصفحة الأولى
         document.getElementById('search-machine').addEventListener('input', function(event) {
@@ -3981,6 +4086,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
         hideLoading(); // Ensure loading is hidden even on error
     }
+	// إضافة هذا الاستدعاء بعد تهيئة الصفحة
+    setTimeout(setupPageSizeControls, 100);
 });
     // تحديث العداد والإحصائيات
 async function updatePendingStats() {
@@ -4017,9 +4124,33 @@ function setupRealTimeStats() {
         .subscribe();
 }
 
+// تحديث العداد والإحصائيات لعدد الآلات
+async function updateMachineStats() {
+    try {
+        const { count, error } = await window.supabase
+            .from('machines')
+            .select('*', { count: 'exact', head: true });
+        
+        if (error) throw error;
+        
+        document.getElementById('machine-count').textContent = count;
+        
+        // تحديث وقت التحديث
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ar-EG');
+        document.getElementById('machine-update-time').textContent = timeString;
+        
+    } catch (error) {
+        console.error('Error updating machine stats:', error);
+    }
+}
+
+
+
 // استدعاء الدوال عند تحميل لوحة التحكم
 document.getElementById('dashboard-section').addEventListener('show', async () => {
     await updatePendingStats();
+	updateMachineStats()
     setupRealTimeStats();
 });
     </script>

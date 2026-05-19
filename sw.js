@@ -107,3 +107,19 @@ self.addEventListener('message', (event) => {
         );
     }
 });
+
+// ─── النقر على إشعار المتصفح ──────────────────────────
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(clientList => {
+                // إذا كان التطبيق مفتوحاً في تاب — ركّز عليه
+                for (const client of clientList) {
+                    if ('focus' in client) return client.focus();
+                }
+                // وإلا افتح نافذة جديدة
+                return clients.openWindow(event.notification.data?.url || './');
+            })
+    );
+});
